@@ -42,6 +42,9 @@ function App() {
   const [isTOCOpen, setIsTOCOpen] = useState(true);
   const [runTutorial, setRunTutorial] = useState(false);
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(true);
+  const [tutorialCompleted, setTutorialCompleted] = useState(
+    localStorage.getItem('tutorialCompleted') === 'true'
+  );
 
   // 튜토리얼 단계 정의
   const tutorialSteps = [
@@ -186,7 +189,8 @@ function App() {
     const { status } = data;
     
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-      localStorage.setItem('hasSeenTutorial', 'true');
+      localStorage.setItem('tutorialCompleted', 'true');
+      setTutorialCompleted(true);
       setRunTutorial(false);
     }
   };
@@ -286,9 +290,19 @@ function App() {
     document.querySelector('.attachments')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Add restart tutorial function
+  const restartTutorial = () => {
+    localStorage.removeItem('tutorialCompleted');
+    setTutorialCompleted(false);
+    setCurrentSlide(0);
+    setTimeout(() => {
+      setRunTutorial(true);
+    }, 500);
+  };
+
   return (
     <div className="app">
-      {currentSlide === 1 && (
+      {currentSlide === 1 && !tutorialCompleted && (
         <Joyride
           steps={tutorialSteps}
           run={runTutorial}
@@ -500,6 +514,13 @@ function App() {
           </>
         )}
       </div>
+
+      {tutorialCompleted && currentSlide > 0 && (
+        <button className="restart-tutorial" onClick={restartTutorial}>
+          <HelpCircle size={20} />
+          튜토리얼 다시보기
+        </button>
+      )}
     </div>
   );
 }
