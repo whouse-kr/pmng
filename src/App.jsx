@@ -300,6 +300,35 @@ function App() {
     }, 500);
   };
 
+  const renderSlideList = () => {
+    const groups = {};
+    prompts.slides.forEach((slide) => {
+      if (!groups[slide.group]) {
+        groups[slide.group] = [];
+      }
+      groups[slide.group].push(slide);
+    });
+
+    return Object.entries(groups).map(([groupName, slides], groupIndex) => {
+      let slideCounter = 1;
+      return (
+        <div key={groupName} className="slide-group">
+          <div className="group-header">{groupName}</div>
+          {slides.map((slide, index) => (
+            <div
+              key={index}
+              className={`slide-item ${currentSlide === prompts.slides.indexOf(slide) ? 'current-slide' : ''}`}
+              onClick={() => setCurrentSlide(prompts.slides.indexOf(slide))}
+            >
+              <span className="slide-number">{groupName === "표지" ? "" : slideCounter++}</span>
+              <span className="slide-title">{slide.title}</span>
+            </div>
+          ))}
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="app">
       {currentSlide === 1 && !tutorialCompleted && (
@@ -404,16 +433,7 @@ function App() {
           </div>
 
           <ul className={`slide-list ${!isTOCOpen ? 'hidden' : ''}`}>
-            {prompts.slides.map((slide, index) => (
-              <li
-                key={index}
-                className={`slide-item ${currentSlide === index ? 'current-slide' : ''}`}
-                onClick={() => setCurrentSlide(index)}
-              >
-                <span className="slide-number">{index}</span>
-                <span className="slide-title">{slide.title}</span>
-              </li>
-            ))}
+            {renderSlideList()}
           </ul>
         </div>
       </div>
