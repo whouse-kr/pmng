@@ -441,15 +441,71 @@ function App() {
       {/* Main Content */}
       <div className="main-content">
         <div className="slide-nav">
-          {prompts.slides.map((slide, index) => (
-            <button
-              key={index}
-              className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
-              onClick={() => setCurrentSlide(index)}
-            >
-              {index}
-            </button>
-          ))}
+          <div className="tab-list">
+            {Object.values(prompts.slides.reduce((groups, slide, index) => {
+              if (!groups[slide.group]) {
+                groups[slide.group] = {
+                  group: slide.group,
+                  slides: []
+                };
+              }
+              groups[slide.group].slides.push({ slide, index });
+              return groups;
+            }, {})).map(({ group, slides }, groupIndex) => {
+              const getShortGroupName = (name) => {
+                if (name === "표지") return "표지";
+                if (name === "기본 기능 실습") return "기본";
+                if (name === "프롬프트 실습") return "프롬프트";
+                if (name === "다양한 모델 활용 실습") return "모델활용";
+                if (name === "분야별 전문 생성AI") return "전문AI";
+                if (name === "GPT 맞춤 챗봇 제작") return "챗봇";
+                if (name.startsWith("부록")) return name;
+                return name;
+              };
+
+              const isActive = slides.some(({ index }) => index === currentSlide);
+              
+              return (
+                <button
+                  key={group}
+                  className={`tab-button ${isActive ? 'active' : ''}`}
+                  onClick={() => setCurrentSlide(slides[0].index)}
+                >
+                  {getShortGroupName(group)}
+                </button>
+              );
+            })}
+          </div>
+          <div className="slide-buttons">
+            {Object.values(prompts.slides.reduce((groups, slide, index) => {
+              if (!groups[slide.group]) {
+                groups[slide.group] = {
+                  group: slide.group,
+                  slides: []
+                };
+              }
+              groups[slide.group].slides.push({ slide, index });
+              return groups;
+            }, {})).map(({ group, slides }, groupIndex) => {
+              const isActive = slides.some(({ index }) => index === currentSlide);
+              
+              if (!isActive) return null;
+              
+              return (
+                <div key={group} className="button-group">
+                  {slides.map(({ slide, index }) => (
+                    <button
+                      key={index}
+                      className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
+                      onClick={() => setCurrentSlide(index)}
+                    >
+                      {group === "표지" ? "" : `${groupIndex + 1}-${slides.findIndex(s => s.index === index) + 1}`}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
         
         {currentSlide === 0 ? (
