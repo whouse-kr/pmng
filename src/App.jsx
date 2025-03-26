@@ -42,9 +42,8 @@ function App() {
   const [isTOCOpen, setIsTOCOpen] = useState(true);
   const [runTutorial, setRunTutorial] = useState(false);
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(true);
-  const [tutorialCompleted, setTutorialCompleted] = useState(
-    localStorage.getItem('tutorialCompleted') === 'true'
-  );
+  const [tutorialCompleted, setTutorialCompleted] = useState(true);
+  const [showAuthCenter, setShowAuthCenter] = useState(false);
 
   // 튜토리얼 단계 정의
   const tutorialSteps = [
@@ -318,7 +317,10 @@ function App() {
             <div
               key={index}
               className={`slide-item ${currentSlide === prompts.slides.indexOf(slide) ? 'current-slide' : ''}`}
-              onClick={() => setCurrentSlide(prompts.slides.indexOf(slide))}
+              onClick={() => {
+                setCurrentSlide(prompts.slides.indexOf(slide));
+                setShowAuthCenter(false);
+              }}
             >
               <span className="slide-number">{groupName === "표지" ? "" : slideCounter++}</span>
               <span className="slide-title">{slide.title}</span>
@@ -433,6 +435,16 @@ function App() {
           </div>
 
           <ul className={`slide-list ${!isTOCOpen ? 'hidden' : ''}`}>
+            {/* 
+            <div className="auth-center">
+              <a href="#" onClick={(e) => {
+                e.preventDefault();
+                setShowAuthCenter(true);
+              }}>
+                ChatGPT 인증번호 확인
+              </a>
+            </div>
+            */}
             {renderSlideList()}
           </ul>
         </div>
@@ -440,158 +452,206 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        <div className="slide-nav">
-          <div className="tab-list">
-            {Object.values(prompts.slides.reduce((groups, slide, index) => {
-              if (!groups[slide.group]) {
-                groups[slide.group] = {
-                  group: slide.group,
-                  slides: []
-                };
-              }
-              groups[slide.group].slides.push({ slide, index });
-              return groups;
-            }, {})).map(({ group, slides }, groupIndex) => {
-              const getShortGroupName = (name) => {
-                if (name === "표지") return "표지";
-                if (name === "기본 기능 실습") return "기본";
-                if (name === "프롬프트 실습") return "프롬프트";
-                if (name === "다양한 모델 활용 실습") return "모델활용";
-                if (name === "분야별 전문 생성AI") return "전문AI";
-                if (name === "GPT 맞춤 챗봇 제작") return "챗봇";
-                if (name.startsWith("부록")) return name;
-                return name;
-              };
-
-              const isActive = slides.some(({ index }) => index === currentSlide);
-              
-              return (
-                <button
-                  key={group}
-                  className={`tab-button ${isActive ? 'active' : ''}`}
-                  onClick={() => setCurrentSlide(slides[0].index)}
-                >
-                  {getShortGroupName(group)}
-                </button>
-              );
-            })}
-          </div>
-          <div className="slide-buttons">
-            {Object.values(prompts.slides.reduce((groups, slide, index) => {
-              if (!groups[slide.group]) {
-                groups[slide.group] = {
-                  group: slide.group,
-                  slides: []
-                };
-              }
-              groups[slide.group].slides.push({ slide, index });
-              return groups;
-            }, {})).map(({ group, slides }, groupIndex) => {
-              const isActive = slides.some(({ index }) => index === currentSlide);
-              
-              if (!isActive) return null;
-              
-              return (
-                <div key={group} className="button-group">
-                  {slides.map(({ slide, index }) => (
-                    <button
-                      key={index}
-                      className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
-                      onClick={() => setCurrentSlide(index)}
-                    >
-                      {group === "표지" ? "" : `${groupIndex + 1}-${slides.findIndex(s => s.index === index) + 1}`}
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {currentSlide === 0 ? (
-          <div className="cover-page">
-            <h1 className="cover-title">{prompts.slides[0].title}</h1>
-            <h2 className="cover-subtitle">{prompts.slides[0].content}</h2>
-            <button 
-              className="start-button"
-              onClick={startTutorial}
-            >
-              시작하기
-            </button>
+        {showAuthCenter ? (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              padding: '12px', 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#242842',
+              borderRadius: '12px 12px 0 0',
+              marginBottom: '1px'
+            }}>
+              <h2 style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>ChatGPT 인증번호 확인</h2>
+              <button 
+                onClick={() => setShowAuthCenter(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                돌아가기
+              </button>
+            </div>
+            <iframe 
+              src="https://aikey.app.whouse.kr/" 
+              title="ChatGPT 인증센터"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                borderRadius: '0 0 12px 12px',
+                flex: 1
+              }}
+            />
           </div>
         ) : (
           <>
-            <h1 className="slide-title-main">
-              {`${currentSlide}. `}{prompts.slides[currentSlide]?.title}
-            </h1>
-            <div className="space-y-6">
-              {/* Tools Section */}
-              {currentSlide > 0 && renderToolsSection(prompts.slides[currentSlide])}
+            <div className="slide-nav">
+              <div className="tab-list">
+                {Object.values(prompts.slides.reduce((groups, slide, index) => {
+                  if (!groups[slide.group]) {
+                    groups[slide.group] = {
+                      group: slide.group,
+                      slides: []
+                    };
+                  }
+                  groups[slide.group].slides.push({ slide, index });
+                  return groups;
+                }, {})).map(({ group, slides }, groupIndex) => {
+                  const getShortGroupName = (name) => {
+                    if (name === "표지") return "표지";
+                    if (name === "기본 기능 실습") return "기본";
+                    if (name === "프롬프트 실습") return "프롬프트";
+                    if (name === "다양한 모델 활용 실습") return "모델활용";
+                    if (name === "분야별 전문 생성AI") return "전문AI";
+                    if (name === "GPT 맞춤 챗봇 제작") return "챗봇";
+                    if (name.startsWith("부록")) return name;
+                    return name;
+                  };
 
-              {prompts.slides[currentSlide]?.prompts.map((prompt, index) => (
-                <div key={index} className="prompt-card">
-                  <div className="flex">
-                    <div className="prompt-content-wrapper">
-                      <div className="prompt-number">{index + 1}</div>
-                      <div className="prompt-content">{prompt.text}</div>
-                    </div>
+                  const isActive = slides.some(({ index }) => index === currentSlide);
+                  
+                  return (
                     <button
-                      className="copy-button"
-                      onClick={() => copyToClipboard(prompt.text)}
+                      key={group}
+                      className={`tab-button ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setCurrentSlide(slides[0].index);
+                        setShowAuthCenter(false);
+                      }}
                     >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                      </svg>
-                      복사하기
+                      {getShortGroupName(group)}
                     </button>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
+              <div className="slide-buttons">
+                {Object.values(prompts.slides.reduce((groups, slide, index) => {
+                  if (!groups[slide.group]) {
+                    groups[slide.group] = {
+                      group: slide.group,
+                      slides: []
+                    };
+                  }
+                  groups[slide.group].slides.push({ slide, index });
+                  return groups;
+                }, {})).map(({ group, slides }, groupIndex) => {
+                  const isActive = slides.some(({ index }) => index === currentSlide);
+                  
+                  if (!isActive) return null;
+                  
+                  return (
+                    <div key={group} className="button-group">
+                      {slides.map(({ slide, index }) => (
+                        <button
+                          key={index}
+                          className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
+                          onClick={() => {
+                            setCurrentSlide(index);
+                            setShowAuthCenter(false);
+                          }}
+                        >
+                          {group === "표지" ? "" : `${groupIndex + 1}-${slides.findIndex(s => s.index === index) + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {currentSlide === 0 ? (
+              <div className="cover-page">
+                <h1 className="cover-title">{prompts.slides[0].title}</h1>
+                <h2 className="cover-subtitle">{prompts.slides[0].content}</h2>
+                <button 
+                  className="start-button"
+                  onClick={startTutorial}
+                >
+                  시작하기
+                </button>
+              </div>
+            ) : (
+              <>
+                <h1 className="slide-title-main">
+                  {`${currentSlide}. `}{prompts.slides[currentSlide]?.title}
+                </h1>
+                <div className="space-y-6">
+                  {/* Tools Section */}
+                  {currentSlide > 0 && renderToolsSection(prompts.slides[currentSlide])}
 
-              {prompts.slides[currentSlide]?.attachments && (
-                <div className="attachments">
-                  <strong>첨부 파일:</strong><br />
-                  {prompts.slides[currentSlide].attachments.map((attachment, index) => (
-                    <div key={index}>
-                      {typeof attachment === 'string' ? (
-                        // Legacy string attachments
-                        attachment
-                      ) : attachment.type === 'url' ? (
-                        // URL type attachments
-                        <div>
-                          {attachment.text}{' '}
-                          <a 
-                            href={attachment.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700 underline"
-                          >
-                            바로가기
-                          </a>
+                  {prompts.slides[currentSlide]?.prompts.map((prompt, index) => (
+                    <div key={index} className="prompt-card">
+                      <div className="flex">
+                        <div className="prompt-content-wrapper">
+                          <div className="prompt-number">{index + 1}</div>
+                          <div className="prompt-content">{prompt.text}</div>
                         </div>
-                      ) : (
-                        // Default case for other types
-                        attachment.text || JSON.stringify(attachment)
-                      )}
+                        <button
+                          className="copy-button"
+                          onClick={() => copyToClipboard(prompt.text)}
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                          복사하기
+                        </button>
+                      </div>
                     </div>
                   ))}
-                </div>
-              )}
 
-              {!isAttachmentVisible && prompts.slides[currentSlide]?.attachments && (
-                <div className="attachment-indicator" onClick={scrollToAttachments}>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                  첨부파일 확인하기
+                  {prompts.slides[currentSlide]?.attachments && (
+                    <div className="attachments">
+                      <strong>첨부 파일:</strong><br />
+                      {prompts.slides[currentSlide].attachments.map((attachment, index) => (
+                        <div key={index}>
+                          {typeof attachment === 'string' ? (
+                            // Legacy string attachments
+                            attachment
+                          ) : attachment.type === 'url' ? (
+                            // URL type attachments
+                            <div>
+                              {attachment.text}{' '}
+                              <a 
+                                href={attachment.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-700 underline"
+                              >
+                                바로가기
+                              </a>
+                            </div>
+                          ) : (
+                            // Default case for other types
+                            attachment.text || JSON.stringify(attachment)
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!isAttachmentVisible && prompts.slides[currentSlide]?.attachments && (
+                    <div className="attachment-indicator" onClick={scrollToAttachments}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                      첨부파일 확인하기
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </>
         )}
       </div>
 
-      {tutorialCompleted && currentSlide > 0 && (
+      {false && tutorialCompleted && currentSlide > 0 && (
         <button className="restart-tutorial" onClick={restartTutorial}>
           <HelpCircle size={20} />
           튜토리얼 다시보기

@@ -998,4 +998,24 @@ li {
   background-color: #505BCD;
   color: white;
   font-weight: 500;
+}
+
+.auth-center {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background-color: #2ecc71;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.auth-center a {
+  color: white;
+  text-decoration: none;
+  display: block;
+  width: 100%;
+}
+
+.auth-center a:hover {
+  text-decoration: underline;
 } 
