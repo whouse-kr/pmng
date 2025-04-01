@@ -176,7 +176,11 @@ function App() {
     'Canva': 'https://canva.com',
     'Suno AI': 'https://suno.ai',
     'Perplexity': 'https://www.perplexity.ai',
-    'Ideogram': 'https://ideogram.ai'
+    'Claude': 'https://claude.ai',
+    'ChatPDF': 'https://chatpdf.com',
+    'NoteBookLM': 'https://notebooklm.google.com/',
+    'Youtube Summarizer': 'https://chromewebstore.google.com/detail/youtube-summary-with-chat/nmmicjeknamkfloonkhhcjmomieiodli?hl=ko',
+    'Ideogram': 'https://ideogram.ai',
   };
 
   const getToolButtonsForSlide = (slide) => {
@@ -430,12 +434,12 @@ function App() {
               <a href="https://gamma.app" target="_blank" rel="noopener noreferrer">Gamma</a>
               <a href="https://suno.ai" target="_blank" rel="noopener noreferrer">Suno AI</a>
               <a href="https://www.perplexity.ai" target="_blank" rel="noopener noreferrer">Perplexity</a>
-              <a href="https://ideogram.ai" target="_blank" rel="noopener noreferrer">Ideogram</a>
+              <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Claude</a>
             </div>
           </div>
 
           <ul className={`slide-list ${!isTOCOpen ? 'hidden' : ''}`}>
-            {/* 
+            
             <div className="auth-center">
               <a href="#" onClick={(e) => {
                 e.preventDefault();
@@ -444,7 +448,15 @@ function App() {
                 ChatGPT 인증번호 확인
               </a>
             </div>
-            */}
+
+            <div className="auth-center">
+              <a href="https://drive.google.com/file/d/1IxU-pu26aZxmdTfPNLaGd8YwdhftxW0m/view?usp=sharing" 
+                 target="_blank" 
+                 rel="noopener noreferrer">
+                실습파일 다운로드
+              </a>
+            </div>
+
             {renderSlideList()}
           </ul>
         </div>
