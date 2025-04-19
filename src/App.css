@@ -1018,4 +1018,252 @@ li {
 
 .auth-center a:hover {
   text-decoration: underline;
+}
+
+.edit-mode .prompt-edit-buttons,
+.edit-mode .attachment-edit-buttons,
+.edit-mode .attachment-item-edit-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.edit-mode .prompt-edit-buttons {
+  margin-left: 1rem;
+}
+
+.edit-mode .attachment-edit-buttons {
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.edit-mode .attachment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.edit-btn,
+.delete-btn {
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.edit-btn {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.edit-btn:hover {
+  background-color: #c7d2fe;
+}
+
+.delete-btn {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.delete-btn:hover {
+  background-color: #fecaca;
+}
+
+.small-btn {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+}
+
+.add-prompt-btn {
+  display: block;
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  background-color: #f0f9ff;
+  border: 1px dashed #a5f3fc;
+  border-radius: 8px;
+  color: #075985;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.add-prompt-btn:hover {
+  background-color: #e0f2fe;
+  border-color: #67e8f9;
+}
+
+.edit-toggle-btn.active {
+  background-color: rgba(255, 224, 130, 0.2);
+  color: #D97706;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #333;
+  font-size: 1.4rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.8rem;
+}
+
+.modal-content textarea {
+  flex-grow: 1;
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  resize: vertical;
+  min-height: 150px;
+  box-sizing: border-box;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 0.7rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary {
+  background-color: #505BCD;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #414aa3;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+.slide-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+
+.move-btn,
+.edit-btn,
+.delete-btn {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.move-btn {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-color: #e5e7eb;
+}
+.move-btn:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+.move-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-slide-btn {
+  display: block;
+  width: calc(100% - 30px);
+  margin: 0 auto;
+  padding: 0.8rem;
+  background-color: #e0f2fe;
+  border: 1px dashed #7dd3fc;
+  border-radius: 8px;
+  color: #0369a1;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.add-slide-btn:hover {
+  background-color: #bae6fd;
+  border-color: #38bdf8;
+}
+
+.group-header-edit-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+}
+
+.group-header-edit-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 8px;
 } 

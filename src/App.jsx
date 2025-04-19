@@ -1,8 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, Wrench, ExternalLink, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, Wrench, ExternalLink, HelpCircle, Edit, Trash2, Upload, Download, Hash } from 'lucide-react';
 import Joyride, { STATUS } from 'react-joyride';
-import prompts from './data/prompts.json';
+import initialPrompts from './data/prompts.json';
 import './App.css';
+
+// Key for localStorage
+const LOCAL_STORAGE_KEY = 'promptAppData';
+
+// Function to load data: try localStorage first, then initialPrompts
+const loadInitialData = () => {
+  try {
+    const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedData) {
+      // Basic validation: Check if it has a slides array
+      const parsedData = JSON.parse(savedData);
+      if (parsedData && Array.isArray(parsedData.slides)) {
+         console.log("Loaded data from localStorage");
+         return parsedData;
+      }
+    }
+  } catch (error) {
+    console.error("Error reading data from localStorage:", error);
+    // Clear potentially corrupted data
+    localStorage.removeItem(LOCAL_STORAGE_KEY); 
+  }
+  console.log("Loaded initial data from JSON");
+  return initialPrompts; // Fallback to default data
+};
 
 const CustomTooltip = ({
   continuous,
@@ -44,6 +68,29 @@ function App() {
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(true);
   const [tutorialCompleted, setTutorialCompleted] = useState(true);
   const [showAuthCenter, setShowAuthCenter] = useState(false);
+  const [promptData, setPromptData] = useState(loadInitialData);
+  const [isEditMode, setIsEditMode] = useState(false);
+  // --- Unified Modal State ---
+  const [isItemEditModalOpen, setIsItemEditModalOpen] = useState(false);
+  const [editingItemInfo, setEditingItemInfo] = useState(null); // { type: 'prompt' | 'attachment' | 'slide' | 'slidePosition' }
+  const [editedItemText, setEditedItemText] = useState(""); // Title or Text
+  const [editedItemGroup, setEditedItemGroup] = useState(""); // Group for new slide
+  const [editedItemUrl, setEditedItemUrl] = useState(""); // URL for attachment
+  const [editedItemPosition, setEditedItemPosition] = useState(""); // Target position for slide move
+  const fileInputRef = useRef(null); // Ref for hidden file input
+
+  // --- Save data to localStorage whenever promptData changes ---
+  useEffect(() => {
+    try {
+      // Only save if promptData seems valid (at least has slides array)
+      if (promptData && Array.isArray(promptData.slides)) {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(promptData));
+          // console.log("Saved data to localStorage");
+      }
+    } catch (error) {
+       console.error("Error saving data to localStorage:", error);
+    }
+  }, [promptData]); // Run this effect when promptData changes
 
   // 튜토리얼 단계 정의
   const tutorialSteps = [
@@ -159,15 +206,15 @@ function App() {
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        setCurrentSlide(prev => prev === 0 ? prompts.slides.length - 1 : prev - 1);
+        setCurrentSlide(prev => prev === 0 ? promptData.slides.length - 1 : prev - 1);
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        setCurrentSlide(prev => prev === prompts.slides.length - 1 ? 0 : prev + 1);
+        setCurrentSlide(prev => prev === promptData.slides.length - 1 ? 0 : prev + 1);
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [promptData.slides.length]);
 
   const toolLinks = {
     'ChatGPT': 'https://chat.openai.com',
@@ -265,7 +312,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (!prompts.slides[currentSlide]?.attachments) return;
+    if (!promptData.slides[currentSlide]?.attachments) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -303,40 +350,445 @@ function App() {
     }, 500);
   };
 
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleAddPrompt = (slideIndex) => {
+    // Open the modal for adding a new prompt
+    setEditingItemInfo({ type: 'prompt', slideIndex, actionType: 'add' });
+    setEditedItemText(""); // Start with empty text
+    setEditedItemUrl("");
+    setIsItemEditModalOpen(true);
+  };
+
+  const handleEditPrompt = (slideIndex, promptIndex) => {
+    // Open the modal for prompt editing
+    const currentPrompt = promptData.slides[slideIndex].prompts[promptIndex];
+    setEditingItemInfo({ type: 'prompt', slideIndex, itemIndex: promptIndex, actionType: 'edit' }); // Add actionType
+    setEditedItemText(currentPrompt.text);
+    setEditedItemUrl(""); // Clear URL field for prompts
+    setIsItemEditModalOpen(true);
+  };
+
+  const handleDeletePrompt = (slideIndex, promptIndex) => {
+    if (window.confirm('정말로 이 프롬프트를 삭제하시겠습니까?')) {
+      setPromptData(currentData => {
+        const newSlides = currentData.slides.map((slide, index) => {
+          if (index === slideIndex) {
+            const newPrompts = slide.prompts.filter((prompt, pIndex) => pIndex !== promptIndex);
+            return { ...slide, prompts: newPrompts };
+          }
+          return slide;
+        });
+        return { ...currentData, slides: newSlides };
+      });
+    }
+  };
+
+  // --- Attachment CRUD Functions ---
+  const handleAddAttachment = (slideIndex) => {
+    // Open the modal for adding a new attachment
+    setEditingItemInfo({ type: 'attachment', slideIndex, actionType: 'add' });
+    setEditedItemText(""); // Start with empty fields
+    setEditedItemUrl("");
+    setIsItemEditModalOpen(true);
+  };
+
+  const handleEditAttachment = (slideIndex, attachmentIndex) => {
+    // Open the modal for attachment editing
+    const currentAttachment = promptData.slides[slideIndex].attachments[attachmentIndex];
+    setEditingItemInfo({ type: 'attachment', slideIndex, itemIndex: attachmentIndex, actionType: 'edit' }); // Add actionType
+
+    if (typeof currentAttachment === 'string') {
+      setEditedItemText(currentAttachment);
+      setEditedItemUrl("");
+    } else if (currentAttachment.type === 'url') {
+      setEditedItemText(currentAttachment.text);
+      setEditedItemUrl(currentAttachment.url || "");
+    } else {
+      // Simple text object or other types
+      setEditedItemText(currentAttachment.text || "");
+      setEditedItemUrl("");
+    }
+    setIsItemEditModalOpen(true);
+  };
+
+  const handleDeleteAttachment = (slideIndex, attachmentIndex) => {
+    if (window.confirm('정말로 이 첨부 파일을 삭제하시겠습니까?')) {
+      setPromptData(currentData => {
+        const newSlides = currentData.slides.map((slide, index) => {
+          if (index === slideIndex) {
+            const newAttachments = slide.attachments.filter((att, idx) => idx !== attachmentIndex);
+            return { ...slide, attachments: newAttachments };
+          }
+          return slide;
+        });
+        return { ...currentData, slides: newSlides };
+      });
+    }
+  };
+
+  // --- New: Slide Edit Function --- 
+  const handleEditSlideTitle = (slideIndex) => {
+      const currentSlide = promptData.slides[slideIndex];
+      setEditingItemInfo({ type: 'slide', slideIndex, actionType: 'edit' });
+      setEditedItemText(currentSlide.title); // Use text state for title
+      setEditedItemUrl(""); // Not needed for slide title
+      setIsItemEditModalOpen(true);
+  };
+
+  // --- New: Slide Add/Delete Functions --- 
+  const handleAddSlide = () => {
+      setEditingItemInfo({ type: 'slide', actionType: 'add' });
+      setEditedItemText(""); // For new title
+      setEditedItemGroup(""); // For new group
+      setEditedItemUrl("");
+      setIsItemEditModalOpen(true);
+  };
+
+  const handleDeleteSlide = (slideIndexToDelete) => {
+    const slideTitle = promptData.slides[slideIndexToDelete]?.title || `슬라이드 ${slideIndexToDelete}`;
+    if (window.confirm(`'${slideTitle}' 슬라이드를 정말 삭제하시겠습니까?`)) {
+        setPromptData(currentData => {
+            const newSlides = currentData.slides.filter((slide, index) => index !== slideIndexToDelete);
+            return { ...currentData, slides: newSlides };
+        });
+
+        // Adjust currentSlide index if necessary
+        if (currentSlide === slideIndexToDelete) {
+            // If deleting the current slide, move to the previous one or 0 if it was the first
+            setCurrentSlide(Math.max(0, slideIndexToDelete - 1));
+        } else if (currentSlide > slideIndexToDelete) {
+            // If deleting a slide before the current one, decrement currentSlide index
+            setCurrentSlide(prev => prev - 1);
+        }
+    }
+  };
+
+  // --- New: Slide Position Setting Function --- 
+  const handleSetSlidePositionClick = (slideIndex) => {
+      // Calculate current 1-based position (excluding cover)
+      const currentPosition = slideIndex; // Since index 0 is cover, index 1 is position 1, etc.
+      setEditingItemInfo({ type: 'slidePosition', slideIndex: slideIndex, actionType: 'edit' });
+      setEditedItemPosition(currentPosition.toString()); // Initialize input with current position
+      setEditedItemText(""); // Clear other fields
+      setEditedItemGroup("");
+      setEditedItemUrl("");
+      setIsItemEditModalOpen(true);
+  };
+
+  // Generalized save function (needs modification for slide add)
+  const handleSaveEdit = () => {
+    if (!editingItemInfo) return;
+
+    const { type, slideIndex, itemIndex, actionType } = editingItemInfo;
+
+    // --- Validations --- 
+    let isValid = true;
+    let validationMessage = "";
+
+    if (type === 'prompt') {
+        if (editedItemText.trim() === "") { isValid = false; validationMessage = "프롬프트 내용이 비어있습니다."; }
+    } else if (type === 'attachment') {
+        if (editedItemText.trim() === "") { isValid = false; validationMessage = "첨부 파일 텍스트가 비어있습니다."; }
+        const finalUrl = editedItemUrl.trim();
+        if (finalUrl !== "") {
+            try { new URL(finalUrl); } catch (e) { isValid = false; validationMessage = "유효하지 않은 URL 형식입니다."; }
+        }
+    } else if (type === 'slide') {
+        if (editedItemText.trim() === "") { isValid = false; validationMessage = "슬라이드 제목이 비어있습니다."; }
+        if (actionType === 'add' && editedItemGroup.trim() === "") {
+             isValid = false; validationMessage = "그룹명이 비어있습니다.";
+        }
+    } else if (type === 'slidePosition') {
+        const numSlides = promptData.slides.length;
+        const targetPosition = parseInt(editedItemPosition, 10);
+        if (isNaN(targetPosition) || targetPosition < 1 || targetPosition > numSlides - 1) { // Validate 1-based index range
+             isValid = false; validationMessage = `유효하지 않은 위치입니다. 1부터 ${numSlides - 1} 사이의 숫자를 입력하세요.`;
+        }
+        if (isValid && targetPosition === slideIndex) { // No change needed, treat as valid but do nothing
+            setIsItemEditModalOpen(false); 
+            setEditingItemInfo(null);
+            setEditedItemPosition("");
+            return; 
+        }
+    }
+
+    if (!isValid) {
+        alert(validationMessage);
+        return;
+    }
+
+    // --- State Update --- 
+    let slideWasMoved = false;
+    let originalIndex = -1;
+    let targetIndexForSplice = -1; // Use 0-based index for splice operations
+    let updatedDataForNavigation = null; // To get the latest length for navigation
+
+    setPromptData(currentData => {
+      const newData = JSON.parse(JSON.stringify(currentData)); 
+      
+      if (actionType === 'add') {
+        if (type === 'prompt') {
+            const targetSlide = newData.slides[slideIndex];
+            if (!targetSlide.prompts) targetSlide.prompts = [];
+            targetSlide.prompts.push({ text: editedItemText });
+        } else if (type === 'attachment') {
+             const targetSlide = newData.slides[slideIndex];
+             if (!targetSlide.attachments) targetSlide.attachments = [];
+             const finalUrl = editedItemUrl.trim();
+             let newAttachment;
+             if (finalUrl) { newAttachment = { type: 'url', text: editedItemText, url: finalUrl }; }
+             else { newAttachment = { text: editedItemText }; }
+             targetSlide.attachments.push(newAttachment);
+        } else if (type === 'slide') {
+             const newSlide = {
+                 group: editedItemGroup.trim(),
+                 title: editedItemText.trim(),
+                 prompts: [],
+                 attachments: []
+             };
+             newData.slides.push(newSlide);
+        }
+      } else if (actionType === 'edit') {
+         if (type === 'slidePosition') {
+             originalIndex = slideIndex; 
+             targetIndexForSplice = parseInt(editedItemPosition, 10); 
+             const slideToMove = newData.slides[originalIndex];
+             
+             if (slideToMove) {
+                newData.slides.splice(originalIndex, 1); 
+                newData.slides.splice(targetIndexForSplice, 0, slideToMove); 
+                slideWasMoved = true;
+             }
+         } else { 
+            const targetSlide = newData.slides[slideIndex];
+            if (!targetSlide) return newData; 
+
+            if (type === 'prompt') {
+                 if (targetSlide.prompts?.[itemIndex]) {
+                    targetSlide.prompts[itemIndex].text = editedItemText;
+                 }
+            } else if (type === 'attachment') {
+                 if (targetSlide.attachments?.[itemIndex]) {
+                     const originalAtt = targetSlide.attachments[itemIndex];
+                     const finalUrl = editedItemUrl.trim();
+                     if (typeof originalAtt === 'string') {
+                         targetSlide.attachments[itemIndex] = editedItemText;
+                     } else if (originalAtt.type === 'url') {
+                         if (finalUrl) {
+                            targetSlide.attachments[itemIndex] = { ...originalAtt, text: editedItemText, url: finalUrl };
+                         } else {
+                            targetSlide.attachments[itemIndex] = { text: editedItemText }; 
+                         }
+                     } else {
+                         targetSlide.attachments[itemIndex] = { ...originalAtt, text: editedItemText };
+                         if (targetSlide.attachments[itemIndex].url) delete targetSlide.attachments[itemIndex].url;
+                     }
+                 }
+            } else if (type === 'slide') {
+                targetSlide.title = editedItemText;
+            }
+         } 
+      }
+      updatedDataForNavigation = newData; // Capture the latest data reference
+      return newData;
+    });
+
+    // --- Post State Update (now inside the function scope) --- 
+    if (slideWasMoved) {
+        setCurrentSlide(prevCurrentSlide => {
+            let newCurrentSlideIndex = prevCurrentSlide;
+            if (prevCurrentSlide === originalIndex) {
+                newCurrentSlideIndex = targetIndexForSplice;
+            } else {
+                if (originalIndex < prevCurrentSlide && targetIndexForSplice >= prevCurrentSlide) {
+                    newCurrentSlideIndex--;
+                } else if (originalIndex > prevCurrentSlide && targetIndexForSplice <= prevCurrentSlide) {
+                    newCurrentSlideIndex++;
+                }
+            }
+            return newCurrentSlideIndex;
+        });
+    }
+
+    // Close modal and reset state
+    setIsItemEditModalOpen(false);
+    setEditingItemInfo(null);
+    setEditedItemText("");
+    setEditedItemGroup("");
+    setEditedItemUrl("");
+    setEditedItemPosition(""); 
+
+    // Navigate to newly added slide (use captured data for length)
+    if (actionType === 'add' && type === 'slide' && updatedDataForNavigation) {
+       setCurrentSlide(updatedDataForNavigation.slides.length - 1);
+    }
+  };
+
   const renderSlideList = () => {
     const groups = {};
-    prompts.slides.forEach((slide) => {
-      if (!groups[slide.group]) {
-        groups[slide.group] = [];
-      }
+    // We need the original index mapping preserved for moving, so use map with index
+    const slidesWithOriginalIndex = promptData.slides.map((slide, index) => ({ ...slide, originalIndex: index }));
+
+    slidesWithOriginalIndex.forEach((slide) => {
+      if (!groups[slide.group]) { groups[slide.group] = []; }
       groups[slide.group].push(slide);
     });
 
-    return Object.entries(groups).map(([groupName, slides], groupIndex) => {
-      let slideCounter = 1;
-      return (
-        <div key={groupName} className="slide-group">
-          <div className="group-header">{groupName}</div>
-          {slides.map((slide, index) => (
-            <div
-              key={index}
-              className={`slide-item ${currentSlide === prompts.slides.indexOf(slide) ? 'current-slide' : ''}`}
-              onClick={() => {
-                setCurrentSlide(prompts.slides.indexOf(slide));
-                setShowAuthCenter(false);
-              }}
-            >
-              <span className="slide-number">{groupName === "표지" ? "" : slideCounter++}</span>
-              <span className="slide-title">{slide.title}</span>
+    return (
+      <>
+        {Object.entries(groups).map(([groupName, slidesInGroup]) => {
+          let slideCounter = 1;
+          return (
+            <div key={groupName} className="slide-group">
+              <div className="group-header">{groupName}</div>
+              {slidesInGroup.map((slide) => {
+                const { originalIndex } = slide; // Get the index from the mapped object
+                const canEditOrDelete = isEditMode && originalIndex !== 0;
+
+                return (
+                  <div
+                    key={originalIndex} // Use original index for key
+                    className={`slide-item ${currentSlide === originalIndex ? 'current-slide' : ''} ${isEditMode ? 'edit-mode' : ''}`}
+                    onClick={(e) => {
+                      if (isEditMode && e.target.closest('.slide-actions button')) return;
+                      setCurrentSlide(originalIndex);
+                      setShowAuthCenter(false);
+                    }}
+                  >
+                    <span className="slide-number">{groupName === "표지" ? "" : slideCounter++}</span>
+                    <span className="slide-title">{slide.title}</span>
+                    {/* Action buttons container */}
+                    {canEditOrDelete && (
+                       <div className="slide-actions" onClick={(e) => e.stopPropagation()}>
+                          {/* Set Position Button */}
+                          <button 
+                             className={`set-pos-btn small-btn`} 
+                             onClick={() => handleSetSlidePositionClick(originalIndex)} 
+                             title="위치 지정"
+                           >
+                            <Hash size={12} />
+                          </button>
+                          {/* Edit Title Button */}
+                          <button 
+                            className="edit-btn small-btn edit-slide-btn" 
+                            onClick={(e) => { e.stopPropagation(); handleEditSlideTitle(originalIndex); }} 
+                            title="슬라이드 제목 수정"
+                           >
+                            <Edit size={12} />
+                          </button>
+                          {/* Delete Button */}
+                          <button 
+                            className="delete-btn small-btn delete-slide-btn" 
+                            onClick={(e) => { e.stopPropagation(); handleDeleteSlide(originalIndex); }}
+                            title="슬라이드 삭제"
+                           >
+                            <Trash2 size={12} />
+                          </button>
+                       </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      );
-    });
+          );
+        })}
+        {/* Add Slide Button */}
+        {isEditMode && (
+          <div style={{ padding: '15px' }}> 
+            <button className="add-slide-btn" onClick={handleAddSlide}>
+                + 새 슬라이드 추가
+            </button>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // --- New: Data Import/Export Functions ---
+  const handleExportData = () => {
+    try {
+      const jsonString = JSON.stringify(promptData, null, 2); // Pretty print JSON
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Suggest a filename (e.g., prompts-backup-YYYY-MM-DD.json)
+      const date = new Date();
+      const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+      link.download = `prompts-backup-${dateString}.json`;
+      document.body.appendChild(link); // Required for Firefox
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url); // Clean up
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      alert("데이터 내보내기 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleImportClick = () => {
+    // Trigger the hidden file input
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') throw new Error("File content is not text");
+        
+        const importedData = JSON.parse(text);
+
+        // Basic Validation
+        if (!importedData || !Array.isArray(importedData.slides)) {
+           throw new Error("Invalid data format: Missing 'slides' array.");
+        }
+
+        // Confirmation
+        if (window.confirm("현재 데이터를 가져온 데이터로 덮어쓰시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
+            // Further validation could be added here (e.g., check structure of each slide)
+            setPromptData(importedData);
+            setCurrentSlide(0); // Reset to first slide after import
+            alert("데이터를 성공적으로 가져왔습니다.");
+        }
+      } catch (error) {
+        console.error("Error importing data:", error);
+        alert(`데이터 가져오기 중 오류가 발생했습니다: ${error.message}`);
+      } finally {
+         // Reset file input value to allow importing the same file again
+         if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+         }
+      }
+    };
+    reader.onerror = (e) => {
+        console.error("Error reading file:", e);
+        alert("파일을 읽는 중 오류가 발생했습니다.");
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+    reader.readAsText(file);
   };
 
   return (
     <div className="app">
+      {/* Hidden file input for import */}
+      <input 
+         type="file" 
+         ref={fileInputRef} 
+         style={{ display: 'none' }} 
+         accept=".json,application/json" 
+         onChange={handleImportFileChange} 
+      />
+
       {currentSlide === 1 && !tutorialCompleted && (
         <Joyride
           steps={tutorialSteps}
@@ -422,7 +874,22 @@ function App() {
             <button className="toggle-btn" onClick={toggleSidebar}>
               <Menu />
             </button>
+            <button className={`toggle-btn edit-toggle-btn ${isEditMode ? 'active' : ''}`} onClick={toggleEditMode} title={isEditMode ? "편집 모드 끄기" : "편집 모드 켜기"}>
+              <Edit />
+            </button>
             
+            {/* Import/Export Buttons (only visible when sidebar is open?) */} 
+            {isSidebarOpen && (
+                <div className="io-buttons">
+                   <button onClick={handleImportClick} className="io-btn" title="데이터 가져오기 (JSON)">
+                       <Upload size={18} /> 가져오기
+                   </button>
+                   <button onClick={handleExportData} className="io-btn" title="데이터 내보내기 (JSON)">
+                       <Download size={18} /> 내보내기
+                   </button>
+                </div>
+            )}
+
             <div onClick={toggleTOC} className="toggle-toc">
               <span>목차</span>
               <span>{isTOCOpen ? '▲' : '▼'}</span>
@@ -457,7 +924,7 @@ function App() {
               </a>
             </div>
 
-            {renderSlideList()}
+            {renderSlideList()} {/* This now returns the list AND the add button */}
           </ul>
         </div>
       </div>
@@ -506,37 +973,30 @@ function App() {
           <>
             <div className="slide-nav">
               <div className="tab-list">
-                {Object.values(prompts.slides.reduce((groups, slide, index) => {
+                {Object.values(promptData.slides.reduce((groups, slide, index) => {
+                  const originalIndex = index; // Use index directly as it's the original index here
                   if (!groups[slide.group]) {
-                    groups[slide.group] = {
-                      group: slide.group,
-                      slides: []
-                    };
+                    groups[slide.group] = { group: slide.group, slides: [] };
                   }
-                  groups[slide.group].slides.push({ slide, index });
+                  groups[slide.group].slides.push({ slide, index: originalIndex });
                   return groups;
-                }, {})).map(({ group, slides }, groupIndex) => {
-                  const getShortGroupName = (name) => {
-                    if (name === "표지") return "표지";
-                    if (name === "기본 기능 실습") return "기본";
-                    if (name === "프롬프트 실습") return "프롬프트";
-                    if (name === "다양한 모델 활용 실습") return "모델활용";
-                    if (name === "분야별 전문 생성AI") return "전문AI";
-                    if (name === "GPT 맞춤 챗봇 제작") return "챗봇";
-                    if (name.startsWith("부록")) return name;
-                    return name;
-                  };
-
+                }, {})).map(({ group, slides }) => {
+                   const getShortGroupName = (name) => {
+                      if (name === "표지") return "표지";
+                      if (name === "기본 기능 실습") return "기본";
+                      if (name === "프롬프트 실습") return "프롬프트";
+                      if (name === "다양한 모델 활용 실습") return "모델활용";
+                      if (name === "분야별 전문 생성AI") return "전문AI";
+                      if (name === "GPT 맞춤 챗봇 제작") return "챗봇";
+                      if (name.startsWith("부록")) return name;
+                      return name;
+                    };
                   const isActive = slides.some(({ index }) => index === currentSlide);
-                  
                   return (
                     <button
                       key={group}
                       className={`tab-button ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        setCurrentSlide(slides[0].index);
-                        setShowAuthCenter(false);
-                      }}
+                      onClick={() => { setCurrentSlide(slides[0].index); setShowAuthCenter(false); }}
                     >
                       {getShortGroupName(group)}
                     </button>
@@ -544,44 +1004,47 @@ function App() {
                 })}
               </div>
               <div className="slide-buttons">
-                {Object.values(prompts.slides.reduce((groups, slide, index) => {
-                  if (!groups[slide.group]) {
-                    groups[slide.group] = {
-                      group: slide.group,
-                      slides: []
-                    };
-                  }
-                  groups[slide.group].slides.push({ slide, index });
-                  return groups;
-                }, {})).map(({ group, slides }, groupIndex) => {
-                  const isActive = slides.some(({ index }) => index === currentSlide);
-                  
-                  if (!isActive) return null;
-                  
-                  return (
-                    <div key={group} className="button-group">
-                      {slides.map(({ slide, index }) => (
-                        <button
-                          key={index}
-                          className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
-                          onClick={() => {
-                            setCurrentSlide(index);
-                            setShowAuthCenter(false);
-                          }}
-                        >
-                          {group === "표지" ? "" : `${groupIndex + 1}-${slides.findIndex(s => s.index === index) + 1}`}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })}
+                {Object.values(promptData.slides.reduce((groups, slide, index) => {
+                   const originalIndex = index;
+                   if (!groups[slide.group]) {
+                     groups[slide.group] = { group: slide.group, slides: [] };
+                   }
+                   groups[slide.group].slides.push({ slide, index: originalIndex });
+                   return groups;
+                 }, {})).map(({ group, slides }, groupIndex) => { // Use groupIndex for numbering
+                   const isActive = slides.some(({ index }) => index === currentSlide);
+                   if (!isActive) return null;
+                   const groupStartIndex = promptData.slides.findIndex(s => s.group === group); // Find start index of the group in original data
+                   const groupNumber = promptData.slides.reduce((acc, s, idx) => { // Calculate group number based on unique groups before it
+                        if (idx <= groupStartIndex && !acc.groups.includes(s.group)) {
+                            acc.groups.push(s.group);
+                            acc.count++;
+                        }
+                        return acc;
+                    }, { count: 0, groups: [] }).count;
+
+
+                   return (
+                     <div key={group} className="button-group">
+                       {slides.map(({ slide, index }) => ( // index is original index
+                         <button
+                           key={index}
+                           className={`slide-nav-button ${currentSlide === index ? 'active' : ''}`}
+                           onClick={() => { setCurrentSlide(index); setShowAuthCenter(false); }}
+                         >
+                           {group === "표지" ? "" : `${groupNumber}-${slides.findIndex(s => s.index === index) + 1}`}
+                         </button>
+                       ))}
+                     </div>
+                   );
+                 })}
               </div>
             </div>
             
             {currentSlide === 0 ? (
               <div className="cover-page">
-                <h1 className="cover-title">{prompts.slides[0].title}</h1>
-                <h2 className="cover-subtitle">{prompts.slides[0].content}</h2>
+                <h1 className="cover-title">{promptData.slides[0].title}</h1>
+                <h2 className="cover-subtitle">{promptData.slides[0].content}</h2>
                 <button 
                   className="start-button"
                   onClick={startTutorial}
@@ -592,63 +1055,86 @@ function App() {
             ) : (
               <>
                 <h1 className="slide-title-main">
-                  {`${currentSlide}. `}{prompts.slides[currentSlide]?.title}
+                  {`${currentSlide}. `}{promptData.slides[currentSlide]?.title}
                 </h1>
                 <div className="space-y-6">
                   {/* Tools Section */}
-                  {currentSlide > 0 && renderToolsSection(prompts.slides[currentSlide])}
+                  {currentSlide > 0 && renderToolsSection(promptData.slides[currentSlide])}
 
-                  {prompts.slides[currentSlide]?.prompts.map((prompt, index) => (
-                    <div key={index} className="prompt-card">
+                  {/* Prompts Section */}
+                  {promptData.slides[currentSlide]?.prompts.map((prompt, promptIndex) => (
+                    <div key={promptIndex} className={`prompt-card ${isEditMode ? 'edit-mode' : ''}`}>
                       <div className="flex">
                         <div className="prompt-content-wrapper">
-                          <div className="prompt-number">{index + 1}</div>
+                          <div className="prompt-number">{promptIndex + 1}</div>
                           <div className="prompt-content">{prompt.text}</div>
                         </div>
-                        <button
-                          className="copy-button"
-                          onClick={() => copyToClipboard(prompt.text)}
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                          </svg>
-                          복사하기
-                        </button>
+                        {isEditMode ? (
+                          <div className="prompt-edit-buttons">
+                            <button className="edit-btn" onClick={() => handleEditPrompt(currentSlide, promptIndex)}>수정</button>
+                            <button className="delete-btn" onClick={() => handleDeletePrompt(currentSlide, promptIndex)}>삭제</button>
+                          </div>
+                        ) : (
+                          <button className="copy-button" onClick={() => copyToClipboard(prompt.text)}>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            </svg>
+                            복사하기
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
 
-                  {prompts.slides[currentSlide]?.attachments && (
-                    <div className="attachments">
-                      <strong>첨부 파일:</strong><br />
-                      {prompts.slides[currentSlide].attachments.map((attachment, index) => (
-                        <div key={index}>
-                          {typeof attachment === 'string' ? (
-                            // Legacy string attachments
-                            attachment
-                          ) : attachment.type === 'url' ? (
-                            // URL type attachments
-                            <div>
-                              {attachment.text}{' '}
-                              <a 
-                                href={attachment.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-blue-500 hover:text-blue-700 underline"
-                              >
-                                바로가기
-                              </a>
-                            </div>
-                          ) : (
-                            // Default case for other types
-                            attachment.text || JSON.stringify(attachment)
-                          )}
+                  {/* Add Prompt Button (Edit Mode Only) */}
+                  {isEditMode && currentSlide > 0 && (
+                    <button className="add-prompt-btn" onClick={() => handleAddPrompt(currentSlide)}>
+                      + 프롬프트 추가
+                    </button>
+                  )}
+
+                  {/* Attachments Section */}
+                  {promptData.slides[currentSlide]?.attachments && (
+                    <div className={`attachments ${isEditMode ? 'edit-mode' : ''}`}>
+                       <div>
+                           <strong>첨부 파일:</strong>
+                           {isEditMode && (
+                             <div className="attachment-edit-buttons">
+                               {/* Connect Add Attachment button */}
+                               <button className="edit-btn" onClick={() => handleAddAttachment(currentSlide)}>+ 추가</button>
+                             </div>
+                           )}
+                       </div>
+                      {promptData.slides[currentSlide].attachments.map((attachment, attachmentIndex) => (
+                        <div key={attachmentIndex} className="attachment-item">
+                           <div className="attachment-content">
+                               {typeof attachment === 'string' ? (
+                                 attachment
+                               ) : attachment.type === 'url' ? (
+                                 <div>
+                                   {attachment.text}{' '}
+                                   <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
+                                     바로가기
+                                   </a>
+                                 </div>
+                               ) : (
+                                 attachment.text || JSON.stringify(attachment)
+                               )}
+                           </div>
+                           {isEditMode && (
+                             <div className="attachment-item-edit-buttons">
+                               {/* Connect Edit/Delete buttons */}
+                               <button className="edit-btn small-btn" onClick={() => handleEditAttachment(currentSlide, attachmentIndex)}>수정</button>
+                               <button className="delete-btn small-btn" onClick={() => handleDeleteAttachment(currentSlide, attachmentIndex)}>삭제</button>
+                             </div>
+                           )}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {!isAttachmentVisible && prompts.slides[currentSlide]?.attachments && (
+                   {/* Attachment Indicator */}
+                  {!isAttachmentVisible && promptData.slides[currentSlide]?.attachments && !isEditMode && (
                     <div className="attachment-indicator" onClick={scrollToAttachments}>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -662,6 +1148,110 @@ function App() {
           </>
         )}
       </div>
+
+      {/* Unified Edit/Add Modal */}
+      {isItemEditModalOpen && editingItemInfo && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>
+              {/* Adjust title for slide editing */}
+              {editingItemInfo.type === 'prompt' ? '프롬프트' : 
+               editingItemInfo.type === 'attachment' ? '첨부 파일' : '슬라이드'} 
+              {editingItemInfo.actionType === 'add' ? ' 추가' : ' 수정'}
+            </h2>
+            
+            {/* Conditional fields based on type and action */}
+            {(editingItemInfo.type === 'prompt') ? (
+              // Use Textarea for Prompt Edit
+              <textarea
+                value={editedItemText}
+                onChange={(e) => setEditedItemText(e.target.value)}
+                rows={10}
+                style={{ width: '100%', minHeight: '150px', marginBottom: '1rem' }}
+                placeholder="프롬프트 내용"
+                autoFocus
+              />
+            ) : (editingItemInfo.type === 'attachment') ? (
+              <>
+                 <label style={{ marginBottom: '0.5rem', fontWeight: '500' }}>텍스트:</label>
+                 <textarea
+                   value={editedItemText}
+                   onChange={(e) => setEditedItemText(e.target.value)}
+                   rows={4}
+                   style={{ width: '100%', minHeight: '80px', marginBottom: '1rem' }}
+                   placeholder="표시될 텍스트"
+                   autoFocus
+                 />
+                 {(editingItemInfo.actionType === 'add' || 
+                  (editingItemInfo.actionType === 'edit' && 
+                   promptData.slides[editingItemInfo.slideIndex]?.attachments[editingItemInfo.itemIndex]?.type === 'url')) && (
+                    <>
+                       <label style={{ marginBottom: '0.5rem', fontWeight: '500' }}>URL (선택 사항):</label>
+                       <input
+                         type="url" 
+                         value={editedItemUrl}
+                         onChange={(e) => setEditedItemUrl(e.target.value)}
+                         style={{ width: '100%', padding: '0.8rem', border: '1px solid #ccc', borderRadius: '6px', marginBottom: '1rem' }}
+                         placeholder="https://example.com (입력 시 링크 첨부파일로 저장)"
+                       />
+                    </>
+                 )}
+              </>
+            ) : (editingItemInfo.type === 'slide') ? (
+              <>
+                {/* Group Name (only for Add) */} 
+                {editingItemInfo.actionType === 'add' && (
+                   <>
+                       <label style={{ marginBottom: '0.5rem', fontWeight: '500' }}>그룹명:</label>
+                       <input
+                         type="text"
+                         value={editedItemGroup}
+                         onChange={(e) => setEditedItemGroup(e.target.value)}
+                         style={{ width: '100%', padding: '0.8rem', border: '1px solid #ccc', borderRadius: '6px', marginBottom: '1rem' }}
+                         placeholder="슬라이드가 속할 그룹 (예: 기본 기능)"
+                         autoFocus
+                       />
+                   </>
+                )}
+                {/* Title (for Add and Edit) */} 
+                <label style={{ marginBottom: '0.5rem', fontWeight: '500' }}>제목:</label>
+                <textarea
+                  value={editedItemText}
+                  onChange={(e) => setEditedItemText(e.target.value)}
+                  rows={2}
+                  style={{ width: '100%', minHeight: '50px', marginBottom: '1rem' }}
+                  placeholder="슬라이드 제목"
+                  autoFocus={editingItemInfo.actionType === 'edit'} // Autofocus title on edit
+                />
+              </>
+            ) : (editingItemInfo.type === 'slidePosition') ? (
+              <>
+                <label style={{ marginBottom: '0.5rem', fontWeight: '500' }}>
+                    새 위치 (1 ~ {promptData.slides.length - 1}):
+                </label>
+                <input
+                   type="number"
+                   value={editedItemPosition}
+                   onChange={(e) => setEditedItemPosition(e.target.value)}
+                   min="1"
+                   max={promptData.slides.length - 1}
+                   step="1"
+                   style={{ width: '100px', padding: '0.8rem', border: '1px solid #ccc', borderRadius: '6px', marginBottom: '1rem' }}
+                   autoFocus
+                />
+                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    현재 슬라이드: '{promptData.slides[editingItemInfo.slideIndex]?.title}'
+                </p>
+              </>
+            ) : null /* Should not happen */}
+
+            <div className="modal-actions">
+              <button onClick={handleSaveEdit} className="btn-primary"> 저장 </button>
+              <button onClick={() => { setIsItemEditModalOpen(false); setEditingItemInfo(null); setEditedItemText(""); setEditedItemGroup(""); setEditedItemUrl(""); setEditedItemPosition(""); }} className="btn-secondary"> 취소 </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {false && tutorialCompleted && currentSlide > 0 && (
         <button className="restart-tutorial" onClick={restartTutorial}>
