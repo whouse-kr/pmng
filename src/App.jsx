@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Wrench, ExternalLink, HelpCircle, Edit, Trash2, Upload, Download, Hash } from 'lucide-react';
+import { Menu, Wrench, ExternalLink, HelpCircle, Edit, Trash2, Upload, Download, Hash, Home, FileText, Settings, Info } from 'lucide-react';
 import Joyride, { STATUS } from 'react-joyride';
 import initialPrompts from './data/prompts.json';
 import './App.css';
@@ -70,6 +70,7 @@ function App() {
   const [showAuthCenter, setShowAuthCenter] = useState(false);
   const [promptData, setPromptData] = useState(loadInitialData);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [showAllSlides, setShowAllSlides] = useState(false); // New state to track if all slides should be shown
   const [editingPrompts, setEditingPrompts] = useState({}); // Track which prompts are being edited
   const [isEditingTitle, setIsEditingTitle] = useState(false); // Track if title is being edited
   const [editedTitle, setEditedTitle] = useState(""); // Store the edited title text
@@ -435,6 +436,7 @@ function App() {
 
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
+    setShowAllSlides(!isEditMode); // When entering edit mode, show all slides
   };
 
   const handleAddPrompt = (slideIndex) => {
@@ -884,6 +886,22 @@ function App() {
     return Math.min(estimatedRows, 20);
   };
 
+  // Top bar navigation handler
+  const handleTopNavigation = (destination) => {
+    if (destination === 'home') {
+      setCurrentSlide(0);
+      setShowAuthCenter(false);
+    } else if (destination === 'edit') {
+      toggleEditMode();
+    } else if (destination === 'import') {
+      handleImportClick();
+    } else if (destination === 'export') {
+      handleExportData();
+    } else if (destination === 'help') {
+      restartTutorial();
+    }
+  };
+
   return (
     <div className="app">
       {/* Hidden file input for import */}
@@ -894,6 +912,50 @@ function App() {
          accept=".json,application/json" 
          onChange={handleImportFileChange} 
       />
+
+      {/* Top Navigation Bar */}
+      <div className="top-navbar">
+        <div className="top-navbar-left">
+          <button 
+            className="top-nav-btn" 
+            onClick={() => handleTopNavigation('home')}
+            title="홈으로"
+          >
+            <Home size={20} />
+          </button>
+          <h1 className="top-nav-title">프롬프트 관리자</h1>
+        </div>
+        <div className="top-navbar-right">
+          <button 
+            className={`top-nav-btn ${isEditMode ? 'active' : ''}`}
+            onClick={() => handleTopNavigation('edit')}
+            title={isEditMode ? "편집 모드 끄기" : "편집 모드 켜기"}
+          >
+            <Edit size={20} />
+          </button>
+          <button 
+            className="top-nav-btn" 
+            onClick={() => handleTopNavigation('import')}
+            title="데이터 가져오기"
+          >
+            <Upload size={20} />
+          </button>
+          <button 
+            className="top-nav-btn" 
+            onClick={() => handleTopNavigation('export')}
+            title="데이터 내보내기"
+          >
+            <Download size={20} />
+          </button>
+          <button 
+            className="top-nav-btn" 
+            onClick={() => handleTopNavigation('help')}
+            title="도움말"
+          >
+            <HelpCircle size={20} />
+          </button>
+        </div>
+      </div>
 
       {currentSlide === 1 && !tutorialCompleted && (
         <Joyride
@@ -980,22 +1042,6 @@ function App() {
             <button className="toggle-btn" onClick={toggleSidebar}>
               <Menu />
             </button>
-            <button className={`toggle-btn edit-toggle-btn ${isEditMode ? 'active' : ''}`} onClick={toggleEditMode} title={isEditMode ? "편집 모드 끄기" : "편집 모드 켜기"}>
-              <Edit />
-            </button>
-            
-            {/* Import/Export Buttons (only visible when sidebar is open?) */} 
-            {isSidebarOpen && (
-                <div className="io-buttons">
-                   <button onClick={handleImportClick} className="io-btn" title="데이터 가져오기 (JSON)">
-                       <Upload size={18} /> 가져오기
-                   </button>
-                   <button onClick={handleExportData} className="io-btn" title="데이터 내보내기 (JSON)">
-                       <Download size={18} /> 내보내기
-                   </button>
-                </div>
-            )}
-
             <div onClick={toggleTOC} className="toggle-toc">
               <span>목차</span>
               <span>{isTOCOpen ? '▲' : '▼'}</span>
@@ -1036,7 +1082,7 @@ function App() {
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content ${isSidebarOpen ? 'with-sidebar' : 'no-sidebar'}`}>
         {showAuthCenter ? (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ 
@@ -1145,6 +1191,17 @@ function App() {
                    );
                  })}
               </div>
+              
+              {isEditMode && (
+                <div className="edit-mode-controls">
+                  <button
+                    className={`view-toggle-btn ${showAllSlides ? 'active' : ''}`}
+                    onClick={() => setShowAllSlides(!showAllSlides)}
+                  >
+                    {showAllSlides ? '단일 슬라이드 보기' : '모든 슬라이드 보기'}
+                  </button>
+                </div>
+              )}
             </div>
             
             {currentSlide === 0 ? (
@@ -1157,6 +1214,337 @@ function App() {
                 >
                   시작하기
                 </button>
+              </div>
+            ) : isEditMode && showAllSlides ? (
+              <div className="all-slides-view">
+                {promptData.slides.filter((_, index) => index > 0).map((slide, idx) => {
+                  const slideIndex = idx + 1; // Because we're filtering out the cover slide (index 0)
+                  
+                  return (
+                    <div key={slideIndex} className="slide-edit-container" id={`slide-${slideIndex}`}>
+                      <div className="slide-edit-header">
+                        <h2 className="slide-edit-title">
+                          {`${slideIndex}. ${slide.title}`}
+                          <div className="slide-edit-actions">
+                            <button 
+                              className="edit-btn small-btn"
+                              onClick={() => handleEditSlideTitle(slideIndex)}
+                              title="제목 수정"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              className="set-pos-btn small-btn" 
+                              onClick={() => handleSetSlidePositionClick(slideIndex)} 
+                              title="위치 지정"
+                            >
+                              <Hash size={16} />
+                            </button>
+                            <button 
+                              className="delete-btn small-btn" 
+                              onClick={() => {
+                                setConfirmingDelete(prev => ({
+                                  ...prev,
+                                  [`slide-${slideIndex}`]: true
+                                }));
+                              }}
+                              title="슬라이드 삭제"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </h2>
+                        {confirmingDelete[`slide-${slideIndex}`] && (
+                          <div className="delete-confirmation small">
+                            <span className="confirm-message">슬라이드를 삭제하시겠습니까?</span>
+                            <div className="confirm-buttons">
+                              <button className="confirm-yes" onClick={() => handleDeleteSlide(slideIndex)}>
+                                네
+                              </button>
+                              <button 
+                                className="confirm-no"
+                                onClick={() => {
+                                  setConfirmingDelete(prev => {
+                                    const newState = {...prev};
+                                    delete newState[`slide-${slideIndex}`];
+                                    return newState;
+                                  });
+                                }}
+                              >
+                                아니오
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="slide-edit-content">
+                        {/* Tools Section */}
+                        {renderToolsSection(slide)}
+
+                        {/* Prompts Section */}
+                        {slide.prompts && (
+                          <div className="prompts-section">
+                            {slide.prompts.map((prompt, promptIndex) => (
+                              <div key={promptIndex} className="prompt-card edit-mode">
+                                <div className="flex">
+                                  <div className="prompt-content-wrapper">
+                                    <div className="prompt-number">{promptIndex + 1}</div>
+                                    {editingPrompts[`${slideIndex}-${promptIndex}`] ? (
+                                      <textarea
+                                        className="prompt-content editable"
+                                        value={prompt.text}
+                                        onChange={(e) => {
+                                          setPromptData(currentData => {
+                                            const newData = JSON.parse(JSON.stringify(currentData));
+                                            newData.slides[slideIndex].prompts[promptIndex].text = e.target.value;
+                                            return newData;
+                                          });
+                                        }}
+                                        onBlur={() => {
+                                          setEditingPrompts(prev => {
+                                            const newState = {...prev};
+                                            delete newState[`${slideIndex}-${promptIndex}`];
+                                            return newState;
+                                          });
+                                        }}
+                                        autoFocus
+                                        rows={calculateTextareaRows(prompt.text)}
+                                      />
+                                    ) : (
+                                      <div 
+                                        className="prompt-content"
+                                        onClick={() => {
+                                          setEditingPrompts(prev => ({
+                                            ...prev,
+                                            [`${slideIndex}-${promptIndex}`]: true
+                                          }));
+                                        }}
+                                      >
+                                        {prompt.text}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="prompt-edit-buttons">
+                                    {confirmingDelete[`${slideIndex}-${promptIndex}`] ? (
+                                      <div className="delete-confirmation">
+                                        <span className="confirm-message">삭제하시겠습니까?</span>
+                                        <div className="confirm-buttons">
+                                          <button 
+                                            className="confirm-yes"
+                                            onClick={() => handleDeletePrompt(slideIndex, promptIndex)}
+                                          >
+                                            네
+                                          </button>
+                                          <button 
+                                            className="confirm-no"
+                                            onClick={() => {
+                                              setConfirmingDelete(prev => {
+                                                const newState = {...prev};
+                                                delete newState[`${slideIndex}-${promptIndex}`];
+                                                return newState;
+                                              });
+                                            }}
+                                          >
+                                            아니오
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        className="delete-btn" 
+                                        onClick={() => {
+                                          setConfirmingDelete(prev => ({
+                                            ...prev,
+                                            [`${slideIndex}-${promptIndex}`]: true
+                                          }));
+                                        }}
+                                      >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        삭제하기
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {/* Add Prompt Button */}
+                            <button className="add-prompt-btn" onClick={() => handleAddPrompt(slideIndex)}>
+                              + 프롬프트 추가
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Attachments Section */}
+                        {slide.attachments && (
+                          <div className="attachments edit-mode">
+                            <div>
+                              <strong>첨부 파일:</strong>
+                              <div className="attachment-edit-buttons">
+                                <button className="edit-btn" onClick={() => handleAddAttachment(slideIndex)}>+ 추가</button>
+                              </div>
+                            </div>
+                            {slide.attachments.map((attachment, attachmentIndex) => (
+                              <div key={attachmentIndex} className="attachment-item">
+                                <div className="attachment-content">
+                                  {editingAttachments[`${slideIndex}-${attachmentIndex}`] ? (
+                                    <div className="attachment-inline-edit">
+                                      <textarea 
+                                        value={editedAttachmentText}
+                                        onChange={(e) => setEditedAttachmentText(e.target.value)}
+                                        rows={3}
+                                        className="attachment-edit-textarea"
+                                        autoFocus
+                                        onBlur={() => {
+                                          if (editedAttachmentText.trim() !== "") {
+                                            // Save the edited attachment text
+                                            setPromptData(currentData => {
+                                              const newData = JSON.parse(JSON.stringify(currentData));
+                                              const targetAttachment = newData.slides[slideIndex].attachments[attachmentIndex];
+                                              
+                                              if (typeof targetAttachment === 'string') {
+                                                newData.slides[slideIndex].attachments[attachmentIndex] = editedAttachmentText;
+                                              } else if (targetAttachment.type === 'url') {
+                                                targetAttachment.text = editedAttachmentText;
+                                              } else {
+                                                targetAttachment.text = editedAttachmentText;
+                                              }
+                                              
+                                              return newData;
+                                            });
+                                          }
+                                          
+                                          // Exit edit mode for this attachment
+                                          setEditingAttachments(prev => {
+                                            const newState = {...prev};
+                                            delete newState[`${slideIndex}-${attachmentIndex}`];
+                                            return newState;
+                                          });
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') {
+                                            // Cancel editing
+                                            setEditingAttachments(prev => {
+                                              const newState = {...prev};
+                                              delete newState[`${slideIndex}-${attachmentIndex}`];
+                                              return newState;
+                                            });
+                                          }
+                                        }}
+                                      />
+                                      {typeof attachment !== 'string' && attachment.type === 'url' && (
+                                        <div className="url-field">
+                                          <input 
+                                            type="url"
+                                            placeholder="URL"
+                                            value={attachment.url || ""}
+                                            onChange={(e) => {
+                                              setPromptData(currentData => {
+                                                const newData = JSON.parse(JSON.stringify(currentData));
+                                                newData.slides[slideIndex].attachments[attachmentIndex].url = e.target.value;
+                                                return newData;
+                                              });
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      onClick={() => {
+                                        // Prepare text for editing
+                                        let textToEdit = "";
+                                        if (typeof attachment === 'string') {
+                                          textToEdit = attachment;
+                                        } else if (attachment.type === 'url' || attachment.text) {
+                                          textToEdit = attachment.text || "";
+                                        } else {
+                                          textToEdit = JSON.stringify(attachment);
+                                        }
+                                        
+                                        setEditedAttachmentText(textToEdit);
+                                        
+                                        // Enter edit mode for this attachment
+                                        setEditingAttachments(prev => ({
+                                          ...prev,
+                                          [`${slideIndex}-${attachmentIndex}`]: true
+                                        }));
+                                      }}
+                                    >
+                                      {typeof attachment === 'string' ? (
+                                        attachment
+                                      ) : attachment.type === 'url' ? (
+                                        <div>
+                                          {attachment.text}{' '}
+                                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
+                                            바로가기
+                                          </a>
+                                        </div>
+                                      ) : (
+                                        attachment.text || JSON.stringify(attachment)
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {!editingAttachments[`${slideIndex}-${attachmentIndex}`] && (
+                                  <div className="attachment-item-edit-buttons">
+                                    {confirmingDelete[`attachment-${slideIndex}-${attachmentIndex}`] ? (
+                                      <div className="delete-confirmation small">
+                                        <span className="confirm-message">삭제하시겠습니까?</span>
+                                        <div className="confirm-buttons">
+                                          <button 
+                                            className="confirm-yes"
+                                            onClick={() => handleDeleteAttachment(slideIndex, attachmentIndex)}
+                                          >
+                                            네
+                                          </button>
+                                          <button 
+                                            className="confirm-no"
+                                            onClick={() => {
+                                              setConfirmingDelete(prev => {
+                                                const newState = {...prev};
+                                                delete newState[`attachment-${slideIndex}-${attachmentIndex}`];
+                                                return newState;
+                                              });
+                                            }}
+                                          >
+                                            아니오
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        className="delete-btn small-btn" 
+                                        onClick={() => {
+                                          setConfirmingDelete(prev => ({
+                                            ...prev,
+                                            [`attachment-${slideIndex}-${attachmentIndex}`]: true
+                                          }));
+                                        }}
+                                      >
+                                        삭제
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="slide-edit-separator"></div>
+                    </div>
+                  );
+                })}
+                
+                <div className="slide-add-container">
+                  <button className="add-slide-btn-large" onClick={handleAddSlide}>
+                    + 새 슬라이드 추가
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -1367,167 +1755,165 @@ function App() {
                   {/* Attachments Section */}
                   {promptData.slides[currentSlide]?.attachments && (
                     <div className={`attachments ${isEditMode ? 'edit-mode' : ''}`}>
-                       <div>
-                           <strong>첨부 파일:</strong>
-                           {isEditMode && (
-                             <div className="attachment-edit-buttons">
-                               {/* Connect Add Attachment button */}
-                               <button className="edit-btn" onClick={() => handleAddAttachment(currentSlide)}>+ 추가</button>
-                             </div>
-                           )}
-                       </div>
+                      <div>
+                          <strong>첨부 파일:</strong>
+                          {isEditMode && (
+                            <div className="attachment-edit-buttons">
+                              {/* Connect Add Attachment button */}
+                              <button className="edit-btn" onClick={() => handleAddAttachment(currentSlide)}>+ 추가</button>
+                            </div>
+                          )}
+                      </div>
                       {promptData.slides[currentSlide].attachments.map((attachment, attachmentIndex) => (
                         <div key={attachmentIndex} className="attachment-item">
-                           <div className="attachment-content">
-                               {isEditMode && editingAttachments[`${currentSlide}-${attachmentIndex}`] ? (
-                                 <div className="attachment-inline-edit">
-                                   <textarea 
-                                     value={editedAttachmentText}
-                                     onChange={(e) => setEditedAttachmentText(e.target.value)}
-                                     rows={3}
-                                     className="attachment-edit-textarea"
-                                     autoFocus
-                                     onBlur={() => {
-                                       if (editedAttachmentText.trim() !== "") {
-                                         // Save the edited attachment text
-                                         setPromptData(currentData => {
-                                           const newData = JSON.parse(JSON.stringify(currentData));
-                                           const targetAttachment = newData.slides[currentSlide].attachments[attachmentIndex];
-                                           
-                                           if (typeof targetAttachment === 'string') {
-                                             newData.slides[currentSlide].attachments[attachmentIndex] = editedAttachmentText;
-                                           } else if (targetAttachment.type === 'url') {
-                                             targetAttachment.text = editedAttachmentText;
-                                           } else {
-                                             targetAttachment.text = editedAttachmentText;
-                                           }
-                                           
-                                           return newData;
-                                         });
-                                       }
-                                       
-                                       // Exit edit mode for this attachment
-                                       setEditingAttachments(prev => {
-                                         const newState = {...prev};
-                                         delete newState[`${currentSlide}-${attachmentIndex}`];
-                                         return newState;
-                                       });
-                                     }}
-                                     onKeyDown={(e) => {
-                                       if (e.key === 'Escape') {
-                                         // Cancel editing
-                                         setEditingAttachments(prev => {
-                                           const newState = {...prev};
-                                           delete newState[`${currentSlide}-${attachmentIndex}`];
-                                           return newState;
-                                         });
-                                       }
-                                     }}
-                                   />
-                                   {typeof attachment !== 'string' && attachment.type === 'url' && (
-                                     <div className="url-field">
-                                       <input 
-                                         type="url"
-                                         placeholder="URL"
-                                         value={attachment.url || ""}
-                                         onChange={(e) => {
-                                           setPromptData(currentData => {
-                                             const newData = JSON.parse(JSON.stringify(currentData));
-                                             newData.slides[currentSlide].attachments[attachmentIndex].url = e.target.value;
-                                             return newData;
-                                           });
-                                         }}
-                                       />
-                                     </div>
-                                   )}
-                                 </div>
-                               ) : (
-                                 <div 
-                                   onClick={() => {
-                                     if (isEditMode) {
-                                       // Prepare text for editing
-                                       let textToEdit = "";
-                                       if (typeof attachment === 'string') {
-                                         textToEdit = attachment;
-                                       } else if (attachment.type === 'url' || attachment.text) {
-                                         textToEdit = attachment.text || "";
-                                       } else {
-                                         textToEdit = JSON.stringify(attachment);
-                                       }
-                                       
-                                       setEditedAttachmentText(textToEdit);
-                                       
-                                       // Enter edit mode for this attachment
-                                       setEditingAttachments(prev => ({
-                                         ...prev,
-                                         [`${currentSlide}-${attachmentIndex}`]: true
-                                       }));
-                                     }
-                                   }}
-                                 >
-                                   {typeof attachment === 'string' ? (
-                                     attachment
-                                   ) : attachment.type === 'url' ? (
-                                     <div>
-                                       {attachment.text}{' '}
-                                       <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
-                                         바로가기
-                                       </a>
-                                     </div>
-                                   ) : (
-                                     attachment.text || JSON.stringify(attachment)
-                                   )}
-                                 </div>
-                               )}
-                           </div>
-                           {isEditMode && !editingAttachments[`${currentSlide}-${attachmentIndex}`] && (
-                             <div className="attachment-item-edit-buttons">
-                               {/* Delete button with confirmation */}
-                               {confirmingDelete[`attachment-${currentSlide}-${attachmentIndex}`] ? (
-                                 <div className="delete-confirmation small">
-                                   <span className="confirm-message">삭제하시겠습니까?</span>
-                                   <div className="confirm-buttons">
-                                     <button 
-                                       className="confirm-yes"
-                                       onClick={() => handleDeleteAttachment(currentSlide, attachmentIndex)}
-                                     >
-                                       네
-                                     </button>
-                                     <button 
-                                       className="confirm-no"
-                                       onClick={() => {
-                                         setConfirmingDelete(prev => {
-                                           const newState = {...prev};
-                                           delete newState[`attachment-${currentSlide}-${attachmentIndex}`];
-                                           return newState;
-                                         });
-                                       }}
-                                     >
-                                       아니오
-                                     </button>
-                                   </div>
-                                 </div>
-                               ) : (
-                                 <button 
-                                   className="delete-btn small-btn" 
-                                   onClick={() => {
-                                     setConfirmingDelete(prev => ({
-                                       ...prev,
-                                       [`attachment-${currentSlide}-${attachmentIndex}`]: true
-                                     }));
-                                   }}
-                                 >
-                                   삭제
-                                 </button>
-                               )}
-                             </div>
-                           )}
+                          <div className="attachment-content">
+                              {isEditMode && editingAttachments[`${currentSlide}-${attachmentIndex}`] ? (
+                                <div className="attachment-inline-edit">
+                                  <textarea 
+                                    value={editedAttachmentText}
+                                    onChange={(e) => setEditedAttachmentText(e.target.value)}
+                                    rows={3}
+                                    className="attachment-edit-textarea"
+                                    autoFocus
+                                    onBlur={() => {
+                                      if (editedAttachmentText.trim() !== "") {
+                                        // Save the edited attachment text
+                                        setPromptData(currentData => {
+                                          const newData = JSON.parse(JSON.stringify(currentData));
+                                          const targetAttachment = newData.slides[currentSlide].attachments[attachmentIndex];
+                                          
+                                          if (typeof targetAttachment === 'string') {
+                                            newData.slides[currentSlide].attachments[attachmentIndex] = editedAttachmentText;
+                                          } else if (targetAttachment.type === 'url') {
+                                            targetAttachment.text = editedAttachmentText;
+                                          } else {
+                                            targetAttachment.text = editedAttachmentText;
+                                          }
+                                          
+                                          return newData;
+                                        });
+                                      }
+                                      
+                                      // Exit edit mode for this attachment
+                                      setEditingAttachments(prev => {
+                                        const newState = {...prev};
+                                        delete newState[`${currentSlide}-${attachmentIndex}`];
+                                        return newState;
+                                      });
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Escape') {
+                                        // Cancel editing
+                                        setEditingAttachments(prev => {
+                                          const newState = {...prev};
+                                          delete newState[`${currentSlide}-${attachmentIndex}`];
+                                          return newState;
+                                        });
+                                      }
+                                    }}
+                                  />
+                                  {typeof attachment !== 'string' && attachment.type === 'url' && (
+                                    <div className="url-field">
+                                      <input 
+                                        type="url"
+                                        placeholder="URL"
+                                        value={attachment.url || ""}
+                                        onChange={(e) => {
+                                          setPromptData(currentData => {
+                                            const newData = JSON.parse(JSON.stringify(currentData));
+                                            newData.slides[currentSlide].attachments[attachmentIndex].url = e.target.value;
+                                            return newData;
+                                          });
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div 
+                                  onClick={() => {
+                                    // Prepare text for editing
+                                    let textToEdit = "";
+                                    if (typeof attachment === 'string') {
+                                      textToEdit = attachment;
+                                    } else if (attachment.type === 'url' || attachment.text) {
+                                      textToEdit = attachment.text || "";
+                                    } else {
+                                      textToEdit = JSON.stringify(attachment);
+                                    }
+                                    
+                                    setEditedAttachmentText(textToEdit);
+                                    
+                                    // Enter edit mode for this attachment
+                                    setEditingAttachments(prev => ({
+                                      ...prev,
+                                      [`${currentSlide}-${attachmentIndex}`]: true
+                                    }));
+                                  }}
+                                >
+                                  {typeof attachment === 'string' ? (
+                                    attachment
+                                  ) : attachment.type === 'url' ? (
+                                    <div>
+                                      {attachment.text}{' '}
+                                      <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
+                                        바로가기
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    attachment.text || JSON.stringify(attachment)
+                                  )}
+                                </div>
+                              )}
+                          </div>
+                          {isEditMode && !editingAttachments[`${currentSlide}-${attachmentIndex}`] && (
+                            <div className="attachment-item-edit-buttons">
+                              {/* Delete button with confirmation */}
+                              {confirmingDelete[`attachment-${currentSlide}-${attachmentIndex}`] ? (
+                                <div className="delete-confirmation small">
+                                  <span className="confirm-message">삭제하시겠습니까?</span>
+                                  <div className="confirm-buttons">
+                                    <button 
+                                      className="confirm-yes"
+                                      onClick={() => handleDeleteAttachment(currentSlide, attachmentIndex)}
+                                    >
+                                      네
+                                    </button>
+                                    <button 
+                                      className="confirm-no"
+                                      onClick={() => {
+                                        setConfirmingDelete(prev => {
+                                          const newState = {...prev};
+                                          delete newState[`attachment-${currentSlide}-${attachmentIndex}`];
+                                          return newState;
+                                        });
+                                      }}
+                                    >
+                                      아니오
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  className="delete-btn small-btn" 
+                                  onClick={() => {
+                                    setConfirmingDelete(prev => ({
+                                      ...prev,
+                                      [`attachment-${currentSlide}-${attachmentIndex}`]: true
+                                    }));
+                                  }}
+                                >
+                                  삭제
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
 
-                   {/* Attachment Indicator */}
+                  {/* Attachment Indicator */}
                   {!isAttachmentVisible && promptData.slides[currentSlide]?.attachments && !isEditMode && (
                     <div className="attachment-indicator" onClick={scrollToAttachments}>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

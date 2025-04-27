@@ -11,7 +11,9 @@ body, html {
 
 .app {
   display: flex;
+  flex-wrap: wrap;
   height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -22,8 +24,9 @@ body, html {
   color: white;
   transition: all 0.3s ease;
   position: relative;
-  height: 100vh;
+  height: calc(100vh - 60px);
   overflow: hidden;
+  margin-top: 0;
 }
 
 .sidebar.closed {
@@ -118,12 +121,21 @@ body, html {
 .main-content {
   flex-grow: 1;
   padding: 0 40px 40px;
-  height: 100vh;
+  height: calc(100vh - 60px);
   background-color: #2B3151;
   min-width: 360px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: 15px;
+}
+
+.main-content.with-sidebar {
+  width: calc(100% - 280px);
+}
+
+.main-content.no-sidebar {
+  width: 100%;
 }
 
 .slide-nav {
@@ -1799,4 +1811,267 @@ li {
   padding: 5px 10px;
   font-size: 0.85rem;
   min-width: 50px;
+}
+
+/* Edit Mode View Toggle */
+.edit-mode-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.view-toggle-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.view-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.view-toggle-btn.active {
+  background-color: #505BCD;
+  color: white;
+}
+
+/* All Slides View */
+.all-slides-view {
+  padding: 20px;
+  padding-bottom: 100px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 130px);
+}
+
+.slide-edit-container {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 50px; /* Keep the 50px spacing */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.slide-edit-container:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.slide-edit-header {
+  margin-bottom: 20px;
+}
+
+.slide-edit-title {
+  font-size: 1.5rem;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+}
+
+.slide-edit-content {
+  padding: 20px 15px;
+  background-color: #2B3151;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.slide-add-container {
+  margin-top: 20px;
+  margin-bottom: 80px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Top Navigation Bar Styles */
+.top-navbar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #242842;
+  padding: 0 20px;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.top-navbar-left, .top-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-nav-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+  margin-left: 15px;
+}
+
+.top-nav-btn {
+  background: none;
+  border: none;
+  color: #a0aec0;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.top-nav-btn.active {
+  background-color: #505BCD;
+  color: white;
+}
+
+/* Mobile responsiveness for top bar */
+@media (max-width: 768px) {
+  .top-nav-title {
+    font-size: 1rem;
+  }
+  
+  .top-navbar {
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-nav-btn {
+    padding: 6px;
+  }
+  
+  .top-nav-title {
+    font-size: 0.9rem;
+    margin-left: 8px;
+  }
+}
+
+.slide-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.slide-edit-content .tools-section,
+.slide-edit-content .prompts-section,
+.slide-edit-content .attachments {
+  margin-bottom: 20px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.slide-edit-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #2A2F56;
+}
+
+.slide-edit-content .attachment-item {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: #f5f7ff;
+  border-radius: 6px;
+}
+
+.slide-edit-content .prompt-card {
+  margin-bottom: 10px;
+}
+
+.slide-edit-content .prompt-content {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.slide-edit-content .attachments,
+.slide-edit-content .prompt-card {
+  margin-bottom: 15px;
+}
+
+.slide-edit-content .add-prompt-btn {
+  margin-top: 5px;
+}
+
+.slide-edit-view-btn {
+  margin: 10px auto;
+  display: block;
+  background-color: #505BCD;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slide-edit-view-btn:hover {
+  background-color: #4550b5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(80, 91, 205, 0.3);
+}
+
+.slide-edit-separator {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 100%);
+  margin: 30px 0 0 0;
+}
+
+.add-slide-btn-large {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-slide-btn-large:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+/* For mobile screens */
+@media (max-width: 768px) {
+  .slide-edit-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .slide-edit-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 } 
