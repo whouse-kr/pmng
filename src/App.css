@@ -205,6 +205,70 @@ body, html {
   position: sticky;
   top: 0;
   z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.editable-title {
+  cursor: pointer;
+  position: relative;
+}
+
+.editable-title:hover::after {
+  content: "더블클릭하여 제목 수정";
+  position: absolute;
+  top: -30px;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-main-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: 15px;
+}
+
+.slide-main-actions button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.slide-main-actions .set-pos-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.slide-main-actions .set-pos-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.slide-main-actions .delete-btn {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+
+.slide-main-actions .delete-btn:hover {
+  background-color: rgba(220, 38, 38, 0.3);
 }
 
 .space-y-6 {
@@ -301,13 +365,6 @@ body, html {
   font-size: 0.95rem;
   line-height: 1.6;
   margin-bottom: 20px;
-}
-
-.slide-title-main {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 24px;
 }
 
 .slide {
@@ -1266,4 +1323,84 @@ li {
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   margin-bottom: 8px;
+}
+
+.prompt-content.editable {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  resize: vertical;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s ease, height 0.2s ease;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-sizing: border-box;
+}
+
+.prompt-content.editable:focus {
+  outline: none;
+  border-color: #505BCD;
+  box-shadow: 0 0 0 2px rgba(80, 91, 205, 0.2);
+}
+
+.prompt-card.edit-mode .prompt-content-wrapper {
+  width: 100%;
+  padding-right: 10px;
+}
+
+.prompt-card.edit-mode .prompt-content {
+  cursor: pointer;
+  position: relative;
+}
+
+.prompt-card.edit-mode .prompt-content:hover::after {
+  content: "더블클릭하여 수정";
+  position: absolute;
+  top: -25px;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.title-edit-input {
+  background-color: #2B3151;
+  border: 1px solid #505BCD;
+  border-radius: 4px;
+  color: white;
+  font-size: 1.8rem;
+  font-weight: bold;
+  padding: 5px 10px;
+  margin: -5px 0;
+  width: 80%;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 2px rgba(80, 91, 205, 0.3);
+}
+
+.title-edit-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
+}
+
+.title-text {
+  display: inline-block;
+  padding: 5px 0;
 } 

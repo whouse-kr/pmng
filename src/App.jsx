@@ -70,6 +70,9 @@ function App() {
   const [showAuthCenter, setShowAuthCenter] = useState(false);
   const [promptData, setPromptData] = useState(loadInitialData);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [editingPrompts, setEditingPrompts] = useState({}); // Track which prompts are being edited
+  const [isEditingTitle, setIsEditingTitle] = useState(false); // Track if title is being edited
+  const [editedTitle, setEditedTitle] = useState(""); // Store the edited title text
   // --- Unified Modal State ---
   const [isItemEditModalOpen, setIsItemEditModalOpen] = useState(false);
   const [editingItemInfo, setEditingItemInfo] = useState(null); // { type: 'prompt' | 'attachment' | 'slide' | 'slidePosition' }
@@ -660,35 +663,6 @@ function App() {
                   >
                     <span className="slide-number">{groupName === "표지" ? "" : slideCounter++}</span>
                     <span className="slide-title">{slide.title}</span>
-                    {/* Action buttons container */}
-                    {canEditOrDelete && (
-                       <div className="slide-actions" onClick={(e) => e.stopPropagation()}>
-                          {/* Set Position Button */}
-                          <button 
-                             className={`set-pos-btn small-btn`} 
-                             onClick={() => handleSetSlidePositionClick(originalIndex)} 
-                             title="위치 지정"
-                           >
-                            <Hash size={12} />
-                          </button>
-                          {/* Edit Title Button */}
-                          <button 
-                            className="edit-btn small-btn edit-slide-btn" 
-                            onClick={(e) => { e.stopPropagation(); handleEditSlideTitle(originalIndex); }} 
-                            title="슬라이드 제목 수정"
-                           >
-                            <Edit size={12} />
-                          </button>
-                          {/* Delete Button */}
-                          <button 
-                            className="delete-btn small-btn delete-slide-btn" 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteSlide(originalIndex); }}
-                            title="슬라이드 삭제"
-                           >
-                            <Trash2 size={12} />
-                          </button>
-                       </div>
-                    )}
                   </div>
                 );
               })}
@@ -776,6 +750,25 @@ function App() {
         }
     };
     reader.readAsText(file);
+  };
+
+  // Function to calculate appropriate textarea rows based on content length
+  const calculateTextareaRows = (text) => {
+    if (!text) return 4; // Default minimum rows
+    
+    // Count line breaks
+    const lineBreaks = (text.match(/\n/g) || []).length;
+    
+    // Estimate rows based on text length and line breaks
+    // Assume approximately 80 chars per line
+    const estimatedRows = Math.max(
+      4, // Minimum 4 rows
+      lineBreaks + 1, // At least one row per line break plus one
+      Math.ceil(text.length / 80) // Estimate based on character count
+    );
+    
+    // Cap at a reasonable maximum
+    return Math.min(estimatedRows, 20);
   };
 
   return (
@@ -1054,8 +1047,67 @@ function App() {
               </div>
             ) : (
               <>
-                <h1 className="slide-title-main">
-                  {`${currentSlide}. `}{promptData.slides[currentSlide]?.title}
+                <h1 
+                  className={`slide-title-main ${isEditMode && currentSlide !== 0 ? 'editable-title' : ''}`}
+                >
+                  {isEditMode && currentSlide !== 0 && isEditingTitle ? (
+                    <input
+                      type="text"
+                      className="title-edit-input"
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      onBlur={() => {
+                        if (editedTitle.trim() !== "") {
+                          // Save the edited title
+                          setPromptData(currentData => {
+                            const newData = JSON.parse(JSON.stringify(currentData));
+                            newData.slides[currentSlide].title = editedTitle;
+                            return newData;
+                          });
+                        }
+                        setIsEditingTitle(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.target.blur(); // Trigger the blur event to save
+                        } else if (e.key === 'Escape') {
+                          setIsEditingTitle(false); // Cancel editing
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      className="title-text"
+                      onDoubleClick={() => {
+                        if (isEditMode && currentSlide !== 0) {
+                          setEditedTitle(promptData.slides[currentSlide].title);
+                          setIsEditingTitle(true);
+                        }
+                      }}
+                    >
+                      {`${currentSlide}. `}{promptData.slides[currentSlide]?.title}
+                    </span>
+                  )}
+                  
+                  {isEditMode && currentSlide !== 0 && (
+                    <div className="slide-main-actions">
+                      <button 
+                        className="set-pos-btn small-btn" 
+                        onClick={() => handleSetSlidePositionClick(currentSlide)} 
+                        title="위치 지정"
+                      >
+                        <Hash size={18} />
+                      </button>
+                      <button 
+                        className="delete-btn small-btn delete-slide-btn" 
+                        onClick={() => handleDeleteSlide(currentSlide)}
+                        title="슬라이드 삭제"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  )}
                 </h1>
                 <div className="space-y-6">
                   {/* Tools Section */}
@@ -1067,7 +1119,44 @@ function App() {
                       <div className="flex">
                         <div className="prompt-content-wrapper">
                           <div className="prompt-number">{promptIndex + 1}</div>
-                          <div className="prompt-content">{prompt.text}</div>
+                          {isEditMode && editingPrompts[`${currentSlide}-${promptIndex}`] ? (
+                            <textarea
+                              className="prompt-content editable"
+                              value={prompt.text}
+                              onChange={(e) => {
+                                setPromptData(currentData => {
+                                  const newData = JSON.parse(JSON.stringify(currentData));
+                                  newData.slides[currentSlide].prompts[promptIndex].text = e.target.value;
+                                  return newData;
+                                });
+                              }}
+                              onBlur={() => {
+                                // Exit edit mode for this prompt when lost focus
+                                setEditingPrompts(prev => {
+                                  const newState = {...prev};
+                                  delete newState[`${currentSlide}-${promptIndex}`];
+                                  return newState;
+                                });
+                              }}
+                              autoFocus
+                              rows={calculateTextareaRows(prompt.text)}
+                            />
+                          ) : (
+                            <div 
+                              className="prompt-content"
+                              onDoubleClick={() => {
+                                if (isEditMode) {
+                                  // Enter edit mode for this prompt
+                                  setEditingPrompts(prev => ({
+                                    ...prev,
+                                    [`${currentSlide}-${promptIndex}`]: true
+                                  }));
+                                }
+                              }}
+                            >
+                              {prompt.text}
+                            </div>
+                          )}
                         </div>
                         {isEditMode ? (
                           <div className="prompt-edit-buttons">
