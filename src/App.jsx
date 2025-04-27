@@ -73,6 +73,11 @@ function App() {
   const [editingPrompts, setEditingPrompts] = useState({}); // Track which prompts are being edited
   const [isEditingTitle, setIsEditingTitle] = useState(false); // Track if title is being edited
   const [editedTitle, setEditedTitle] = useState(""); // Store the edited title text
+  const [editingAttachments, setEditingAttachments] = useState({}); // Track which attachments are being edited
+  const [editedAttachmentText, setEditedAttachmentText] = useState(""); // Store the edited attachment text
+  const [isEditingTools, setIsEditingTools] = useState(false); // Track if tools are being edited
+  const [selectedTools, setSelectedTools] = useState([]); // Store the selected tools
+  const [confirmingDelete, setConfirmingDelete] = useState({}); // Track which items are showing delete confirmation
   // --- Unified Modal State ---
   const [isItemEditModalOpen, setIsItemEditModalOpen] = useState(false);
   const [editingItemInfo, setEditingItemInfo] = useState(null); // { type: 'prompt' | 'attachment' | 'slide' | 'slidePosition' }
@@ -281,28 +286,103 @@ function App() {
   };
 
   const renderToolsSection = (slide) => {
-    if (!slide.tools || slide.tools.length === 0) return null;
+    if (!slide.tools && !isEditMode) return null;
+    
+    const availableTools = Object.keys(toolLinks);
     
     return (
       <div className="tools-section">
         <h3>
           <Wrench className="tool-icon" />
           사용 도구
-        </h3>
-        <div className="tools-list">
-          {slide.tools.map((tool) => (
-            <a
-              key={tool}
-              href={toolLinks[tool]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="tool-tag"
+          {isEditMode && !isEditingTools && (
+            <button 
+              className="edit-tools-btn" 
+              onClick={() => {
+                setSelectedTools(slide.tools || []);
+                setIsEditingTools(true);
+              }}
+              title="도구 수정"
             >
-              {tool}
-              <ExternalLink size={14} />
-            </a>
-          ))}
-        </div>
+              <Edit size={16} />
+              <span className="edit-tools-text">수정</span>
+            </button>
+          )}
+        </h3>
+        {isEditMode && isEditingTools ? (
+          <div className="tools-edit-container">
+            <div className="tools-checkbox-list">
+              {availableTools.map((tool) => (
+                <div key={tool} className="tool-checkbox-item">
+                  <label className="tool-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={selectedTools.includes(tool)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTools(prev => [...prev, tool]);
+                        } else {
+                          setSelectedTools(prev => prev.filter(t => t !== tool));
+                        }
+                      }}
+                    />
+                    <span className="tool-checkbox-text">{tool}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div className="tools-edit-actions">
+              <button 
+                className="save-tools-btn"
+                onClick={() => {
+                  // Save the selected tools
+                  setPromptData(currentData => {
+                    const newData = JSON.parse(JSON.stringify(currentData));
+                    newData.slides[currentSlide].tools = [...selectedTools];
+                    return newData;
+                  });
+                  setIsEditingTools(false);
+                }}
+              >
+                저장
+              </button>
+              <button 
+                className="cancel-tools-btn"
+                onClick={() => setIsEditingTools(false)}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="tools-list">
+            {(slide.tools || []).map((tool) => (
+              <a
+                key={tool}
+                href={toolLinks[tool]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tool-tag"
+                onClick={(e) => {
+                  if (isEditMode) {
+                    e.preventDefault(); // Prevent opening the link in edit mode
+                  }
+                }}
+              >
+                {tool}
+                <ExternalLink size={14} />
+              </a>
+            ))}
+            {isEditMode && (!slide.tools || slide.tools.length === 0) && (
+              <div className="no-tools-message" onClick={() => {
+                setSelectedTools([]);
+                setIsEditingTools(true);
+              }}>
+                <button className="add-tools-btn">+ 도구 추가하기</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -358,11 +438,27 @@ function App() {
   };
 
   const handleAddPrompt = (slideIndex) => {
-    // Open the modal for adding a new prompt
-    setEditingItemInfo({ type: 'prompt', slideIndex, actionType: 'add' });
-    setEditedItemText(""); // Start with empty text
-    setEditedItemUrl("");
-    setIsItemEditModalOpen(true);
+    // Add a new empty prompt directly to the data
+    setPromptData(currentData => {
+      const newData = JSON.parse(JSON.stringify(currentData));
+      if (!newData.slides[slideIndex].prompts) {
+        newData.slides[slideIndex].prompts = [];
+      }
+      // Add new empty prompt
+      const newPromptIndex = newData.slides[slideIndex].prompts.length;
+      newData.slides[slideIndex].prompts.push({ text: "" });
+      
+      return newData;
+    });
+    
+    // Delay setting the editing state to ensure the new prompt is rendered
+    setTimeout(() => {
+      const newPromptIndex = promptData.slides[slideIndex].prompts.length;
+      setEditingPrompts(prev => ({
+        ...prev,
+        [`${slideIndex}-${newPromptIndex}`]: true
+      }));
+    }, 50);
   };
 
   const handleEditPrompt = (slideIndex, promptIndex) => {
@@ -375,18 +471,24 @@ function App() {
   };
 
   const handleDeletePrompt = (slideIndex, promptIndex) => {
-    if (window.confirm('정말로 이 프롬프트를 삭제하시겠습니까?')) {
-      setPromptData(currentData => {
-        const newSlides = currentData.slides.map((slide, index) => {
-          if (index === slideIndex) {
-            const newPrompts = slide.prompts.filter((prompt, pIndex) => pIndex !== promptIndex);
-            return { ...slide, prompts: newPrompts };
-          }
-          return slide;
-        });
-        return { ...currentData, slides: newSlides };
+    // No more window.confirm - just delete directly
+    setPromptData(currentData => {
+      const newSlides = currentData.slides.map((slide, index) => {
+        if (index === slideIndex) {
+          const newPrompts = slide.prompts.filter((prompt, pIndex) => pIndex !== promptIndex);
+          return { ...slide, prompts: newPrompts };
+        }
+        return slide;
       });
-    }
+      return { ...currentData, slides: newSlides };
+    });
+    
+    // Clear any confirming state
+    setConfirmingDelete(prev => {
+      const newState = {...prev};
+      delete newState[`${slideIndex}-${promptIndex}`];
+      return newState;
+    });
   };
 
   // --- Attachment CRUD Functions ---
@@ -418,18 +520,24 @@ function App() {
   };
 
   const handleDeleteAttachment = (slideIndex, attachmentIndex) => {
-    if (window.confirm('정말로 이 첨부 파일을 삭제하시겠습니까?')) {
-      setPromptData(currentData => {
-        const newSlides = currentData.slides.map((slide, index) => {
-          if (index === slideIndex) {
-            const newAttachments = slide.attachments.filter((att, idx) => idx !== attachmentIndex);
-            return { ...slide, attachments: newAttachments };
-          }
-          return slide;
-        });
-        return { ...currentData, slides: newSlides };
+    // No more window.confirm
+    setPromptData(currentData => {
+      const newSlides = currentData.slides.map((slide, index) => {
+        if (index === slideIndex) {
+          const newAttachments = slide.attachments.filter((att, idx) => idx !== attachmentIndex);
+          return { ...slide, attachments: newAttachments };
+        }
+        return slide;
       });
-    }
+      return { ...currentData, slides: newSlides };
+    });
+    
+    // Clear any confirming state
+    setConfirmingDelete(prev => {
+      const newState = {...prev};
+      delete newState[`attachment-${slideIndex}-${attachmentIndex}`];
+      return newState;
+    });
   };
 
   // --- New: Slide Edit Function --- 
@@ -451,22 +559,27 @@ function App() {
   };
 
   const handleDeleteSlide = (slideIndexToDelete) => {
-    const slideTitle = promptData.slides[slideIndexToDelete]?.title || `슬라이드 ${slideIndexToDelete}`;
-    if (window.confirm(`'${slideTitle}' 슬라이드를 정말 삭제하시겠습니까?`)) {
-        setPromptData(currentData => {
-            const newSlides = currentData.slides.filter((slide, index) => index !== slideIndexToDelete);
-            return { ...currentData, slides: newSlides };
-        });
+    // No more window.confirm
+    setPromptData(currentData => {
+        const newSlides = currentData.slides.filter((slide, index) => index !== slideIndexToDelete);
+        return { ...currentData, slides: newSlides };
+    });
 
-        // Adjust currentSlide index if necessary
-        if (currentSlide === slideIndexToDelete) {
-            // If deleting the current slide, move to the previous one or 0 if it was the first
-            setCurrentSlide(Math.max(0, slideIndexToDelete - 1));
-        } else if (currentSlide > slideIndexToDelete) {
-            // If deleting a slide before the current one, decrement currentSlide index
-            setCurrentSlide(prev => prev - 1);
-        }
+    // Adjust currentSlide index if necessary
+    if (currentSlide === slideIndexToDelete) {
+        // If deleting the current slide, move to the previous one or 0 if it was the first
+        setCurrentSlide(Math.max(0, slideIndexToDelete - 1));
+    } else if (currentSlide > slideIndexToDelete) {
+        // If deleting a slide before the current one, decrement currentSlide index
+        setCurrentSlide(prev => prev - 1);
     }
+    
+    // Clear any confirming state
+    setConfirmingDelete(prev => {
+      const newState = {...prev};
+      delete newState[`slide-${slideIndexToDelete}`];
+      return newState;
+    });
   };
 
   // --- New: Slide Position Setting Function --- 
@@ -1079,7 +1192,7 @@ function App() {
                   ) : (
                     <span
                       className="title-text"
-                      onDoubleClick={() => {
+                      onClick={() => {
                         if (isEditMode && currentSlide !== 0) {
                           setEditedTitle(promptData.slides[currentSlide].title);
                           setIsEditingTitle(true);
@@ -1099,13 +1212,44 @@ function App() {
                       >
                         <Hash size={18} />
                       </button>
-                      <button 
-                        className="delete-btn small-btn delete-slide-btn" 
-                        onClick={() => handleDeleteSlide(currentSlide)}
-                        title="슬라이드 삭제"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {confirmingDelete[`slide-${currentSlide}`] ? (
+                        <div className="delete-confirmation small">
+                          <span className="confirm-message">슬라이드를 삭제하시겠습니까?</span>
+                          <div className="confirm-buttons">
+                            <button 
+                              className="confirm-yes"
+                              onClick={() => handleDeleteSlide(currentSlide)}
+                            >
+                              네
+                            </button>
+                            <button 
+                              className="confirm-no"
+                              onClick={() => {
+                                setConfirmingDelete(prev => {
+                                  const newState = {...prev};
+                                  delete newState[`slide-${currentSlide}`];
+                                  return newState;
+                                });
+                              }}
+                            >
+                              아니오
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          className="delete-btn small-btn delete-slide-btn" 
+                          onClick={() => {
+                            setConfirmingDelete(prev => ({
+                              ...prev,
+                              [`slide-${currentSlide}`]: true
+                            }));
+                          }}
+                          title="슬라이드 삭제"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </h1>
@@ -1144,7 +1288,7 @@ function App() {
                           ) : (
                             <div 
                               className="prompt-content"
-                              onDoubleClick={() => {
+                              onClick={() => {
                                 if (isEditMode) {
                                   // Enter edit mode for this prompt
                                   setEditingPrompts(prev => ({
@@ -1160,8 +1304,46 @@ function App() {
                         </div>
                         {isEditMode ? (
                           <div className="prompt-edit-buttons">
-                            <button className="edit-btn" onClick={() => handleEditPrompt(currentSlide, promptIndex)}>수정</button>
-                            <button className="delete-btn" onClick={() => handleDeletePrompt(currentSlide, promptIndex)}>삭제</button>
+                            {confirmingDelete[`${currentSlide}-${promptIndex}`] ? (
+                              <div className="delete-confirmation">
+                                <span className="confirm-message">삭제하시겠습니까?</span>
+                                <div className="confirm-buttons">
+                                  <button 
+                                    className="confirm-yes"
+                                    onClick={() => handleDeletePrompt(currentSlide, promptIndex)}
+                                  >
+                                    네
+                                  </button>
+                                  <button 
+                                    className="confirm-no"
+                                    onClick={() => {
+                                      setConfirmingDelete(prev => {
+                                        const newState = {...prev};
+                                        delete newState[`${currentSlide}-${promptIndex}`];
+                                        return newState;
+                                      });
+                                    }}
+                                  >
+                                    아니오
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button 
+                                className="delete-btn" 
+                                onClick={() => {
+                                  setConfirmingDelete(prev => ({
+                                    ...prev,
+                                    [`${currentSlide}-${promptIndex}`]: true
+                                  }));
+                                }}
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                삭제하기
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <button className="copy-button" onClick={() => copyToClipboard(prompt.text)}>
@@ -1197,24 +1379,147 @@ function App() {
                       {promptData.slides[currentSlide].attachments.map((attachment, attachmentIndex) => (
                         <div key={attachmentIndex} className="attachment-item">
                            <div className="attachment-content">
-                               {typeof attachment === 'string' ? (
-                                 attachment
-                               ) : attachment.type === 'url' ? (
-                                 <div>
-                                   {attachment.text}{' '}
-                                   <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
-                                     바로가기
-                                   </a>
+                               {isEditMode && editingAttachments[`${currentSlide}-${attachmentIndex}`] ? (
+                                 <div className="attachment-inline-edit">
+                                   <textarea 
+                                     value={editedAttachmentText}
+                                     onChange={(e) => setEditedAttachmentText(e.target.value)}
+                                     rows={3}
+                                     className="attachment-edit-textarea"
+                                     autoFocus
+                                     onBlur={() => {
+                                       if (editedAttachmentText.trim() !== "") {
+                                         // Save the edited attachment text
+                                         setPromptData(currentData => {
+                                           const newData = JSON.parse(JSON.stringify(currentData));
+                                           const targetAttachment = newData.slides[currentSlide].attachments[attachmentIndex];
+                                           
+                                           if (typeof targetAttachment === 'string') {
+                                             newData.slides[currentSlide].attachments[attachmentIndex] = editedAttachmentText;
+                                           } else if (targetAttachment.type === 'url') {
+                                             targetAttachment.text = editedAttachmentText;
+                                           } else {
+                                             targetAttachment.text = editedAttachmentText;
+                                           }
+                                           
+                                           return newData;
+                                         });
+                                       }
+                                       
+                                       // Exit edit mode for this attachment
+                                       setEditingAttachments(prev => {
+                                         const newState = {...prev};
+                                         delete newState[`${currentSlide}-${attachmentIndex}`];
+                                         return newState;
+                                       });
+                                     }}
+                                     onKeyDown={(e) => {
+                                       if (e.key === 'Escape') {
+                                         // Cancel editing
+                                         setEditingAttachments(prev => {
+                                           const newState = {...prev};
+                                           delete newState[`${currentSlide}-${attachmentIndex}`];
+                                           return newState;
+                                         });
+                                       }
+                                     }}
+                                   />
+                                   {typeof attachment !== 'string' && attachment.type === 'url' && (
+                                     <div className="url-field">
+                                       <input 
+                                         type="url"
+                                         placeholder="URL"
+                                         value={attachment.url || ""}
+                                         onChange={(e) => {
+                                           setPromptData(currentData => {
+                                             const newData = JSON.parse(JSON.stringify(currentData));
+                                             newData.slides[currentSlide].attachments[attachmentIndex].url = e.target.value;
+                                             return newData;
+                                           });
+                                         }}
+                                       />
+                                     </div>
+                                   )}
                                  </div>
                                ) : (
-                                 attachment.text || JSON.stringify(attachment)
+                                 <div 
+                                   onClick={() => {
+                                     if (isEditMode) {
+                                       // Prepare text for editing
+                                       let textToEdit = "";
+                                       if (typeof attachment === 'string') {
+                                         textToEdit = attachment;
+                                       } else if (attachment.type === 'url' || attachment.text) {
+                                         textToEdit = attachment.text || "";
+                                       } else {
+                                         textToEdit = JSON.stringify(attachment);
+                                       }
+                                       
+                                       setEditedAttachmentText(textToEdit);
+                                       
+                                       // Enter edit mode for this attachment
+                                       setEditingAttachments(prev => ({
+                                         ...prev,
+                                         [`${currentSlide}-${attachmentIndex}`]: true
+                                       }));
+                                     }
+                                   }}
+                                 >
+                                   {typeof attachment === 'string' ? (
+                                     attachment
+                                   ) : attachment.type === 'url' ? (
+                                     <div>
+                                       {attachment.text}{' '}
+                                       <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline">
+                                         바로가기
+                                       </a>
+                                     </div>
+                                   ) : (
+                                     attachment.text || JSON.stringify(attachment)
+                                   )}
+                                 </div>
                                )}
                            </div>
-                           {isEditMode && (
+                           {isEditMode && !editingAttachments[`${currentSlide}-${attachmentIndex}`] && (
                              <div className="attachment-item-edit-buttons">
-                               {/* Connect Edit/Delete buttons */}
-                               <button className="edit-btn small-btn" onClick={() => handleEditAttachment(currentSlide, attachmentIndex)}>수정</button>
-                               <button className="delete-btn small-btn" onClick={() => handleDeleteAttachment(currentSlide, attachmentIndex)}>삭제</button>
+                               {/* Delete button with confirmation */}
+                               {confirmingDelete[`attachment-${currentSlide}-${attachmentIndex}`] ? (
+                                 <div className="delete-confirmation small">
+                                   <span className="confirm-message">삭제하시겠습니까?</span>
+                                   <div className="confirm-buttons">
+                                     <button 
+                                       className="confirm-yes"
+                                       onClick={() => handleDeleteAttachment(currentSlide, attachmentIndex)}
+                                     >
+                                       네
+                                     </button>
+                                     <button 
+                                       className="confirm-no"
+                                       onClick={() => {
+                                         setConfirmingDelete(prev => {
+                                           const newState = {...prev};
+                                           delete newState[`attachment-${currentSlide}-${attachmentIndex}`];
+                                           return newState;
+                                         });
+                                       }}
+                                     >
+                                       아니오
+                                     </button>
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <button 
+                                   className="delete-btn small-btn" 
+                                   onClick={() => {
+                                     setConfirmingDelete(prev => ({
+                                       ...prev,
+                                       [`attachment-${currentSlide}-${attachmentIndex}`]: true
+                                     }));
+                                   }}
+                                 >
+                                   삭제
+                                 </button>
+                               )}
                              </div>
                            )}
                         </div>
