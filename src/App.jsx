@@ -286,22 +286,24 @@ function App() {
     }
   };
 
-  const renderToolsSection = (slide) => {
+  const renderToolsSection = (slide, slideIndex) => {
+    if (!slide) return null; // Add check for valid slide
     if (!slide.tools && !isEditMode) return null;
     
     const availableTools = Object.keys(toolLinks);
+    const isCurrentlyEditingTools = isEditingTools === slideIndex; // Check if *this* slide's tools are being edited
     
     return (
       <div className="tools-section">
         <h3>
           <Wrench className="tool-icon" />
           사용 도구
-          {isEditMode && !isEditingTools && (
+          {isEditMode && !isCurrentlyEditingTools && (
             <button 
               className="edit-tools-btn" 
               onClick={() => {
                 setSelectedTools(slide.tools || []);
-                setIsEditingTools(true);
+                setIsEditingTools(slideIndex); // Set editing state to this slide's index
               }}
               title="도구 수정"
             >
@@ -310,7 +312,7 @@ function App() {
             </button>
           )}
         </h3>
-        {isEditMode && isEditingTools ? (
+        {isEditMode && isCurrentlyEditingTools ? (
           <div className="tools-edit-container">
             <div className="tools-checkbox-list">
               {availableTools.map((tool) => (
@@ -336,20 +338,22 @@ function App() {
               <button 
                 className="save-tools-btn"
                 onClick={() => {
-                  // Save the selected tools
+                  // Save the selected tools for the specific slideIndex
                   setPromptData(currentData => {
                     const newData = JSON.parse(JSON.stringify(currentData));
-                    newData.slides[currentSlide].tools = [...selectedTools];
+                    if (newData.slides[slideIndex]) { // Ensure slide exists
+                      newData.slides[slideIndex].tools = [...selectedTools];
+                    }
                     return newData;
                   });
-                  setIsEditingTools(false);
+                  setIsEditingTools(false); // Reset editing state
                 }}
               >
                 저장
               </button>
               <button 
                 className="cancel-tools-btn"
-                onClick={() => setIsEditingTools(false)}
+                onClick={() => setIsEditingTools(false)} // Reset editing state
               >
                 취소
               </button>
@@ -377,7 +381,7 @@ function App() {
             {isEditMode && (!slide.tools || slide.tools.length === 0) && (
               <div className="no-tools-message" onClick={() => {
                 setSelectedTools([]);
-                setIsEditingTools(true);
+                setIsEditingTools(slideIndex); // Set editing state to this slide's index
               }}>
                 <button className="add-tools-btn">+ 도구 추가하기</button>
               </div>
@@ -1280,7 +1284,7 @@ function App() {
                       
                       <div className="slide-edit-content">
                         {/* Tools Section */}
-                        {renderToolsSection(slide)}
+                        {renderToolsSection(slide, slideIndex)}
 
                         {/* Prompts Section */}
                         {slide.prompts && (
@@ -1643,7 +1647,7 @@ function App() {
                 </h1>
                 <div className="space-y-6">
                   {/* Tools Section */}
-                  {currentSlide > 0 && renderToolsSection(promptData.slides[currentSlide])}
+                  {currentSlide > 0 && renderToolsSection(promptData.slides[currentSlide], currentSlide)}
 
                   {/* Prompts Section */}
                   {promptData.slides[currentSlide]?.prompts.map((prompt, promptIndex) => (
